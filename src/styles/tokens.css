@@ -1,0 +1,57 @@
+/* Tokens de diseño. Todo color/espaciado de la app sale de aquí. */
+:root {
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --sidebar-w: 232px;
+  --topbar-h: 56px;
+
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-2: #f8f9fb;
+  --border: #e4e7ec;
+  --text: #111827;
+  --text-2: #4b5563;
+  --text-3: #8a93a3;
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-soft: #eef0fe;
+  --on-primary: #ffffff;
+  --success: #059669;
+  --success-soft: #e7f7f0;
+  --warning: #d97706;
+  --warning-soft: #fdf3e2;
+  --danger: #dc2626;
+  --danger-soft: #fdecec;
+  --info: #0284c7;
+  --info-soft: #e5f3fb;
+  --shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 1px 3px rgba(16, 24, 40, .06);
+  --shadow-lg: 0 12px 32px rgba(16, 24, 40, .12);
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #0d1117;
+  --surface: #151b23;
+  --surface-2: #1b222c;
+  --border: #29313d;
+  --text: #e6e9ef;
+  --text-2: #a8b1bf;
+  --text-3: #6f7a8a;
+  --primary: #7c74ff;
+  --primary-hover: #8f88ff;
+  --primary-soft: #23214a;
+  --on-primary: #ffffff;
+  --success: #34d399;
+  --success-soft: #0f2c23;
+  --warning: #fbbf24;
+  --warning-soft: #33280f;
+  --danger: #f87171;
+  --danger-soft: #361a1c;
+  --info: #38bdf8;
+  --info-soft: #0f2a38;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, .45);
+  color-scheme: dark;
+}

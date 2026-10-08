@@ -1,0 +1,39 @@
+.dashboard { display: flex; flex-direction: column; gap: 20px; }
+.dash-hero__date { text-transform: capitalize; color: var(--text-3); font-weight: 500; font-size: 13px; margin-bottom: 4px; }
+.dash-hero h1 { font-size: 26px; }
+.dash-hero p { margin-top: 4px; }
+
+.dash-grid {
+  display: grid; gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-areas:
+    'next next pending'
+    'activity pipeline pipeline'
+    'results results results';
+}
+.dash-next { grid-area: next; }
+.dash-pending { grid-area: pending; }
+.dash-activity { grid-area: activity; }
+.dash-pipeline { grid-area: pipeline; }
+.dash-results { grid-area: results; }
+
+.next-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.next-col { background: var(--surface-2); border-radius: var(--radius); padding: 12px; min-height: 160px; }
+.next-col__label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.next-col__label::before { content: ''; width: 8px; height: 8px; border-radius: 50%; }
+.next-col__label--today { color: var(--danger); }
+.next-col__label--today::before { background: var(--danger); }
+.next-col__label--tomorrow { color: var(--warning); }
+.next-col__label--tomorrow::before { background: var(--warning); }
+.next-col__label--later { color: var(--info); }
+.next-col__label--later::before { background: var(--info); }
+
+.kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.kpi { background: var(--surface-2); border-radius: var(--radius); padding: 14px; }
+.kpi__label { color: var(--text-3); font-size: 12.5px; font-weight: 500; }
+.kpi__value { font-size: 22px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 1100px) {
+  .dash-grid { grid-template-columns: 1fr; grid-template-areas: 'next' 'pending' 'activity' 'pipeline' 'results'; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

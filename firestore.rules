@@ -1,0 +1,52 @@
+rules_version = '2';
+
+// CRM Comercial - reglas de seguridad de Firestore.
+// Modelo multi-tenant: los datos viven en orgs/{orgId}/... y solo los miembros
+// de la organización (orgs/{orgId}/members/{uid}) pueden acceder a ellos.
+// Hoy cada usuario tiene su propia organización (orgId = uid).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isMember(orgId) {
+      return signedIn() && exists(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid));
+    }
+    function memberRole(orgId) {
+      return get(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)).data.role;
+    }
+    function isOrgAdmin(orgId) {
+      return isMember(orgId) && memberRole(orgId) in ['owner', 'admin'];
+    }
+
+    // Perfil propio. Al crearlo, la organización por defecto debe ser la personal (orgId = uid).
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create: if signedIn() && request.auth.uid == uid && request.resource.data.defaultOrgId == uid;
+      allow update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.defaultOrgId == resource.data.defaultOrgId;
+      allow delete: if false;
+    }
+
+    match /orgs/{orgId} {
+      allow read: if isMember(orgId);
+      // Solo se puede crear la organización personal, siendo su propietario.
+      allow create: if signedIn() && orgId == request.auth.uid && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isOrgAdmin(orgId) && request.resource.data.ownerId == resource.data.ownerId;
+      allow delete: if false;
+
+      match /members/{memberId} {
+        allow read: if isMember(orgId);
+        // Alta inicial del propietario (en el mismo batch que crea la organización).
+        allow create: if signedIn() && memberId == request.auth.uid && orgId == request.auth.uid
+          && request.resource.data.role == 'owner'
+          && getAfter(/databases/$(database)/documents/orgs/$(orgId)).data.ownerId == request.auth.uid;
+        allow update, delete: if false; // gestión de equipo: fase SaaS futura
+      }
+
+      // Datos comerciales: cualquier miembro puede leer y escribir.
+      match /{collection}/{docId} {
+        allow read, write: if collection != 'members' && isMember(orgId);
+      }
+    }
+  }
+}
