@@ -1,7 +1,9 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
+import { onSnapshot } from 'firebase/firestore';
 import { fb } from '@/lib/firebase';
-import { ensureWorkspace } from '@/services/workspace';
+import { ensureWorkspace, DEFAULT_ORG_SETTINGS } from '@/services/workspace';
+import { orgDoc } from '@/services/paths';
 import type { Org, UserProfile } from '@/types/models';
 
 interface AuthState {
@@ -24,7 +26,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    return onAuthStateChanged(fb().auth, async (u) => {
+    let unsubOrg: (() => void) | null = null;
+    const unsubAuth = onAuthStateChanged(fb().auth, async (u) => {
+      unsubOrg?.();
+      unsubOrg = null;
       setUser(u);
       setError(null);
       if (!u) {
@@ -35,16 +40,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setLoading(true);
       try {
-        const ws = await ensureWorkspace(u);
-        setProfile(ws.profile);
-        setOrg(ws.org);
+        const p = await ensureWorkspace(u);
+        setProfile(p);
+        // La organización se escucha en vivo (nombre, ajustes como días de estancamiento…).
+        unsubOrg = onSnapshot(orgDoc(p.defaultOrgId), (snap) => {
+          const data = snap.data() as Omit<Org, 'id'> | undefined;
+          if (data) setOrg({ ...data, id: snap.id, settings: { ...DEFAULT_ORG_SETTINGS, ...data.settings } });
+          setLoading(false);
+        }, (e) => { console.error(e); setError('No se pudo cargar la organización.'); setLoading(false); });
       } catch (e) {
         console.error(e);
         setError('No se pudo cargar tu espacio de trabajo. Revisa las reglas de Firestore.');
-      } finally {
         setLoading(false);
       }
     });
+    return () => { unsubAuth(); unsubOrg?.(); };
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -70,6 +80,13 @@ export function useOrg() {
   const { org } = useAuth();
   if (!org) throw new Error('No hay organización activa');
   return org;
+}
+
+/** uid + orgId de la sesión (para escrituras). */
+export function useSession() {
+  const { user, org } = useAuth();
+  if (!user || !org) throw new Error('Sin sesión');
+  return { uid: user.uid, orgId: org.id, org };
 }
 
 export function authErrorMessage(code: string): string {

@@ -1,7 +1,13 @@
 import { NavLink } from 'react-router-dom';
-import { CURRENT_PHASE, NAV_GROUPS } from '@/app/navigation';
+import { NAV_GROUPS } from '@/app/navigation';
+import { useData } from '@/data/DataProvider';
+import { buildAgenda } from '@/domain/agenda';
+import { useMemo } from 'react';
 
 export function Sidebar() {
+  const d = useData();
+  // Contador de lo que toca hoy o está atrasado, visible desde cualquier pantalla.
+  const due = useMemo(() => buildAgenda(d).filter((i) => i.when === 'overdue' || i.when === 'today').length, [d]);
   return (
     <aside className="sidebar">
       <div className="sidebar__brand">
@@ -12,11 +18,11 @@ export function Sidebar() {
         {NAV_GROUPS.map((group) => (
           <div key={group.label} className="nav-group">
             <div className="nav-group__label">{group.label}</div>
-            {group.items.map(({ path, label, icon: Icon, phase }) => (
+            {group.items.map(({ path, label, icon: Icon }) => (
               <NavLink key={path} to={path} end={path === '/'} className="nav-link">
                 <Icon size={17} />
                 <span>{label}</span>
-                {phase > CURRENT_PHASE && <span className="nav-link__soon">F{phase}</span>}
+                {path === '/' && due > 0 && <span className="nav-link__count">{due}</span>}
               </NavLink>
             ))}
           </div>

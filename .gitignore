@@ -4,3 +4,6 @@ dist
 *.local
 .firebase
 *.tsbuildinfo
+importacion/
+*-debug.log
+firebase-debug.log*

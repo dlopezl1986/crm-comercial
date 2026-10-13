@@ -17,11 +17,16 @@ export interface BaseDoc {
   updatedAt: Timestamp;
   createdBy: ID;
   ownerId: ID; // responsable
-  tags?: ID[];
+  /** Etiquetas (por nombre). Se gestionan en Configuración > Etiquetas. */
+  tags?: string[];
   /** Valores de campos personalizados, indexados por id de definición. */
   custom?: Record<string, unknown>;
+  /** Borrado lógico: necesario para la sincronización incremental (services/sync.ts). */
+  deleted?: boolean;
   /** Marca de datos de demostración (para poder borrarlos de golpe). */
   isDemo?: boolean;
+  /** Lote de importación del que procede (para poder deshacerla). */
+  importBatch?: string;
 }
 
 export type OrgRole = 'owner' | 'admin' | 'member';
@@ -50,23 +55,19 @@ export interface OrgSettings {
   currency: 'EUR';
 }
 
-/** orgs/{orgId}/members/{uid} */
-export interface Member {
-  uid: ID;
-  email: string;
-  role: OrgRole;
-  joinedAt: Timestamp;
-}
-
 export interface Company extends BaseDoc {
   name: string;
   cif?: string;
   sector?: string;
   city?: string;
+  province?: string;
+  address?: string;
   notes?: string;
   email?: string;
   phone?: string;
   website?: string;
+  rating?: number; // valoración pública (p.ej. Google)
+  source?: string; // origen del registro (importación, web, referido…)
   lastActivityAt?: Timestamp;
 }
 
@@ -83,54 +84,64 @@ export interface Contact extends BaseDoc {
   linkedin?: string;
   notes?: string;
   preference?: ContactPreference;
-  companyId?: ID;
+  companyId?: ID | null;
   lastActivityAt?: Timestamp;
 }
 
-export type LeadStatus = 'new' | 'contacting' | 'qualified' | 'disqualified' | 'converted';
+export type LeadStatus = 'new' | 'attempting' | 'contacted' | 'qualified' | 'disqualified' | 'converted';
 
 export interface Lead extends BaseDoc {
   title: string;
-  companyId?: ID;
-  contactId?: ID;
+  companyId?: ID | null;
+  contactId?: ID | null;
   source?: string;
   status: LeadStatus;
   notes?: string;
+  disqualifyReason?: string;
   convertedOpportunityId?: ID;
+  convertedAt?: Timestamp;
   nextStep?: string;
-  nextStepAt?: Timestamp;
+  nextStepAt?: Timestamp | null;
+  lastActivityAt?: Timestamp;
 }
 
 /** Etapas del pipeline (orden visual) y estados alternativos. */
 export const PIPELINE_STAGES = [
   'new', 'to_contact', 'contacted', 'interested', 'meeting', 'proposal', 'negotiation', 'won',
 ] as const;
-export const ALT_STAGES = ['not_interested', 'lost', 'no_response', 'postponed'] as const;
+export const ALT_STAGES = ['no_response', 'postponed', 'not_interested', 'lost'] as const;
 export type OpportunityStage = (typeof PIPELINE_STAGES)[number] | (typeof ALT_STAGES)[number];
 
 export type LossReason =
   | 'price' | 'competition' | 'not_interested' | 'no_budget' | 'has_provider'
   | 'not_now' | 'no_answer' | 'not_fit' | 'cancelled' | 'other';
 
+export interface StageChange {
+  from: OpportunityStage | null;
+  to: OpportunityStage;
+  at: Timestamp;
+}
+
 export interface Opportunity extends BaseDoc {
   name: string;
-  companyId?: ID;
-  contactId?: ID;
+  companyId?: ID | null;
+  contactId?: ID | null;
   serviceIds: ID[];
   stage: OpportunityStage;
-  value?: number;        // opcional
-  probability?: number;  // 0..100
-  weightedValue?: number; // value * probability / 100, calculado al guardar
-  expectedCloseAt?: Timestamp;
+  value?: number | null;        // opcional
+  probability?: number | null;  // 0..100
+  weightedValue?: number | null; // value * probability / 100, calculado al guardar
+  expectedCloseAt?: Timestamp | null;
   notes?: string;
   nextStep?: string;
-  nextStepAt?: Timestamp;
+  nextStepAt?: Timestamp | null;
   lastActivityAt?: Timestamp;
   stageChangedAt?: Timestamp;
-  closedAt?: Timestamp;
-  lossReason?: LossReason;
+  stageHistory?: StageChange[];
+  closedAt?: Timestamp | null;
+  lossReason?: LossReason | null;
   lossNotes?: string;
-  leadId?: ID;
+  leadId?: ID | null;
 }
 
 export type ActivityType = 'call' | 'email' | 'meeting' | 'demo' | 'task' | 'follow_up' | 'note';
@@ -144,28 +155,26 @@ export interface Activity extends BaseDoc {
   title: string;
   description?: string;
   dueAt: Timestamp; // fecha + hora
-  allDay?: boolean;
   status: ActivityStatus;
-  result?: CallResult | string;
-  companyId?: ID;
-  contactId?: ID;
-  opportunityId?: ID;
-  leadId?: ID;
-  completedAt?: Timestamp;
+  result?: CallResult | null;
+  outcome?: string; // resultado libre
+  companyId?: ID | null;
+  contactId?: ID | null;
+  opportunityId?: ID | null;
+  leadId?: ID | null;
+  completedAt?: Timestamp | null;
 }
 
-export interface Service {
-  id: ID;
+export interface Service extends BaseDoc {
   name: string;
   description?: string;
-  price?: number;
+  price?: number | null;
   active: boolean;
   order: number;
-  createdAt: Timestamp;
 }
 
-export interface Tag {
-  id: ID;
+/** Registro de etiquetas (orgs/{orgId}/tags/{id}): color y etiquetas aún sin uso. */
+export interface Tag extends BaseDoc {
   name: string;
   color: string;
 }
@@ -174,11 +183,21 @@ export type CustomFieldEntity = 'company' | 'contact' | 'opportunity' | 'lead';
 export type CustomFieldType = 'text' | 'number' | 'date' | 'select' | 'boolean';
 
 /** Definición de campo personalizado (orgs/{orgId}/customFields/{id}). */
-export interface CustomFieldDef {
-  id: ID;
+export interface CustomFieldDef extends BaseDoc {
   entity: CustomFieldEntity;
   label: string;
   type: CustomFieldType;
   options?: string[];
   order: number;
+}
+
+/** Registro de una importación (orgs/{orgId}/imports/{id}), para consultarla o deshacerla. */
+export interface ImportRecord extends BaseDoc {
+  fileName: string;
+  batch: string;
+  companiesCreated: number;
+  companiesMerged: number;
+  contactsCreated: number;
+  leadsCreated: number;
+  undone?: boolean;
 }
