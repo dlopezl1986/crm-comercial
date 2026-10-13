@@ -85,5 +85,5 @@ export function emailHtml(c: Pick<Campaign, 'linkUrl' | 'imageUrl' | 'footer' | 
 <tr><td><a href="${esc(c.linkUrl)}" target="_blank"><img src="${esc(c.imageUrl)}" width="600" alt="${esc(c.subject)} – Quiero más información" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></a></td></tr>
 <tr><td align="center" style="padding:20px 0 8px;"><a href="${esc(c.linkUrl)}" target="_blank" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:12px 28px;border-radius:6px;">Quiero más información</a></td></tr>
 <tr><td style="padding:16px 0 0;font-size:11px;line-height:16px;color:#6b7280;border-top:1px solid #e5e7eb;">${footer}</td></tr>
-</table></td></tr></table>`;
+</table></td></tr></table>`.replace(/\n/g, '');
 }

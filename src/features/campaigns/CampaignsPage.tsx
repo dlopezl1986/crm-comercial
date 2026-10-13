@@ -28,7 +28,7 @@ export function CampaignsPage() {
 
   return (
     <>
-      <PageHeader title="Campañas de email" subtitle="Envío por lotes desde tu Outlook con Power Automate"
+      <PageHeader title="Campañas de email" subtitle="Envío por lotes desde servicios.profesionales@syscomputers.es con Power Automate"
         actions={<button className="btn btn--primary" onClick={() => setCreating(true)}><Plus size={16} /> Nueva campaña</button>} />
       {d.campaigns.length > 1 && (
         <div className="toolbar">
@@ -92,13 +92,15 @@ function CampaignDetail({ campaign: c }: { campaign: Campaign }) {
             {emails.length === 0 ? <p className="muted">No quedan destinatarios pendientes en esta campaña.</p> : (
               <>
                 <ol className="steps">
-                  <li><strong>Copia los emails del lote</strong> y pégalos en el campo "Emails" de tu flujo de Power Automate "Enviar campaña".
+                  <li><strong>Abre el flujo "Enviar campaña"</strong> en <a href="https://make.powerautomate.com" target="_blank" rel="noreferrer">Power Automate</a> → Ejecutar. Pega en cada campo:
                     <div className="inline" style={{ marginTop: 6 }}>
-                      <button className="btn btn--primary btn--sm" onClick={async () => toast(await copy(emails.join(';')) ? `${emails.length} emails copiados` : 'No se pudo copiar', 'success')}><ClipboardCopy size={14} /> Copiar {emails.length} emails</button>
-                      <button className="btn btn--secondary btn--sm" onClick={download}><Download size={14} /> Descargar lote (Excel)</button>
+                      <button className="btn btn--primary btn--sm" onClick={async () => toast(await copy(emails.join(';')) ? `${emails.length} emails copiados → campo "Emails"` : 'No se pudo copiar', 'success')}><ClipboardCopy size={14} /> 1 · Emails ({emails.length})</button>
+                      <button className="btn btn--primary btn--sm" onClick={async () => toast(await copy(c.subject) ? 'Asunto copiado → campo "Asunto"' : 'No se pudo copiar')}><ClipboardCopy size={14} /> 2 · Asunto</button>
+                      <button className="btn btn--primary btn--sm" onClick={async () => toast(await copy(html) ? 'HTML copiado → campo "Cuerpo"' : 'No se pudo copiar')}><ClipboardCopy size={14} /> 3 · Cuerpo</button>
+                      <button className="btn btn--secondary btn--sm" onClick={download}><Download size={14} /> Lote en Excel</button>
                     </div>
                   </li>
-                  <li><strong>Ejecuta el flujo</strong> y espera a que termine (≈ {Math.ceil((emails.length * 5) / 60)} min con 5 s entre emails).</li>
+                  <li><strong>Ejecuta el flujo</strong> y espera a que termine (≈ {Math.ceil((emails.length * 5) / 60)} min con 5 s entre emails). Puedes ver el progreso en el historial de ejecuciones del flujo.</li>
                   <li><strong>Marca el lote como enviado</strong> para que no se repita:
                     <div style={{ marginTop: 6 }}><button className="btn btn--success btn--sm" onClick={() => setConfirming(true)}><CheckCircle2 size={14} /> Marcar {num(st.nextBatch.length)} como enviadas</button></div>
                   </li>
@@ -113,7 +115,6 @@ function CampaignDetail({ campaign: c }: { campaign: Campaign }) {
           <Card title="Vista previa del email" icon={Mail} actions={<button className="btn btn--ghost btn--sm" onClick={() => setEditing(true)}><Pencil size={14} /> Editar</button>}>
             <div className="small"><strong>Asunto:</strong> {c.subject}</div>
             <div className="email-preview" dangerouslySetInnerHTML={{ __html: html }} />
-            <button className="btn btn--secondary btn--sm" style={{ alignSelf: 'flex-start' }} onClick={async () => toast(await copy(html) ? 'HTML copiado' : 'No se pudo copiar')}><ClipboardCopy size={14} /> Copiar HTML del email</button>
           </Card>
         </div>
 
@@ -123,16 +124,10 @@ function CampaignDetail({ campaign: c }: { campaign: Campaign }) {
             <textarea className="textarea" rows={4} value={optOutText} onChange={(e) => setOptOutText(e.target.value)} placeholder="info@empresa.com" />
             <button className="btn btn--secondary btn--sm" style={{ alignSelf: 'flex-start' }} disabled={busy || !optOutText.trim()} onClick={optOut}>{busy ? <Spinner size={14} /> : 'Dar de baja'}</button>
           </Card>
-          <Card title="Configurar Power Automate (una vez)">
-            <ol className="steps small">
-              <li>Entra en <a href="https://make.powerautomate.com" target="_blank" rel="noreferrer">make.powerautomate.com</a> con serviciosprofesionales@syscomputers.com → <strong>Crear → Flujo de nube instantáneo</strong> → "Desencadenar un flujo manualmente". Nombre: <em>Enviar campaña</em>.</li>
-              <li>En el desencadenador, <strong>Agregar una entrada → Texto</strong> y llámala <em>Emails</em>.</li>
-              <li>Añade <strong>Aplicar a cada uno</strong> (Control). En "Seleccionar una salida" pon la expresión: <code>split(triggerBody()?['text'], ';')</code></li>
-              <li>Dentro, añade <strong>Office 365 Outlook → Enviar un correo electrónico (V2)</strong>: Para = expresión <code>item()</code>; Asunto = el de la campaña; en Cuerpo pulsa <strong>&lt;/&gt;</strong> y pega el HTML copiado. Importancia: Normal.</li>
-              <li>Dentro del bucle, debajo del correo, añade <strong>Retraso</strong> de 5 segundos (Outlook admite unos 30 emails por minuto).</li>
-              <li>En la configuración de "Aplicar a cada uno", deja la <strong>simultaneidad desactivada</strong>. Guarda.</li>
-              <li>Antes del primer lote, prueba el flujo con tu propio email.</li>
-            </ol>
+          <Card title="Flujo de Power Automate">
+            <p className="muted small">El flujo <strong>"Enviar campaña"</strong> ya está creado en tu cuenta (servicios.profesionales@syscomputers.es):
+              recibe Emails, Asunto y Cuerpo, envía un correo individual a cada dirección y espera 5 s entre envíos.</p>
+            <p className="muted small">Antes del primer lote, ejecútalo con tu propio email en el campo "Emails" para ver cómo llega.</p>
           </Card>
         </div>
       </div>
