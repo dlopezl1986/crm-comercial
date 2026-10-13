@@ -27,7 +27,7 @@ export function DataSettings() {
   };
 
   const undo = async (imp: ImportRecord) => {
-    for (const col of ['companies', 'contacts', 'leads'] as const) {
+    for (const col of ['companies', 'contacts', 'leads', 'activities'] as const) {
       const ids = (d[col] as { id: string; importBatch?: string }[]).filter((x) => x.importBatch === imp.batch).map((x) => ({ id: x.id, data: { deleted: true } }));
       if (ids.length) await bulkUpdate(orgId, col, ids);
     }
@@ -66,7 +66,7 @@ export function DataSettings() {
         Se eliminarán {num(demo)} registros marcados como demo. Tus datos reales no se tocan.</ConfirmDialog>}
       {confirm && confirm !== 'clear' && <ConfirmDialog title="Deshacer importación" danger confirmLabel="Deshacer" onClose={() => setConfirm(null)}
         onConfirm={() => undo(confirm)}>
-        Se eliminarán las empresas, contactos y leads creados por <strong>{confirm.fileName}</strong> (también si los has editado después).
+        Se eliminarán las empresas, contactos, leads y notas creados por <strong>{confirm.fileName}</strong> (también si los has editado después).
         Las fusiones con empresas existentes se mantienen.</ConfirmDialog>}
     </div>
   );

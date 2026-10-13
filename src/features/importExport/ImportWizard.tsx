@@ -8,7 +8,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/auth/AuthProvider';
 import { useData } from '@/data/DataProvider';
 import { num } from '@/lib/format';
-import { FIELDS, guessMapping, mapRows, planCompanies, readWorkbook, sheetRows, type DupAction, type Mapping, type PlannedCompany, type Row } from './importEngine';
+import { FIELDS, guessMapping, isFormsExport, mapRows, planCompanies, readWorkbook, sheetRows, type DupAction, type Mapping, type PlannedCompany, type Row } from './importEngine';
 import { executeImport, type ImportResult } from './executeImport';
 
 type Step = 'file' | 'map' | 'review' | 'done';
@@ -29,6 +29,7 @@ export function ImportWizard() {
   const [extraTags, setExtraTags] = useState<string[]>([]);
   const [source, setSource] = useState('');
   const [createLeads, setCreateLeads] = useState(false);
+  const [formsMode, setFormsMode] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -36,13 +37,17 @@ export function ImportWizard() {
   const loadSheet = async (w: WorkBook, name: string) => {
     const { headers: h, rows: r } = await sheetRows(w, name);
     setSheet(name); setHeaders(h); setRows(r); setMapping(guessMapping(h));
+    // Respuestas de Microsoft Forms: solicitudes entrantes → leads para llamar hoy.
+    const forms = isFormsExport(h);
+    setFormsMode(forms);
+    if (forms) { setCreateLeads(true); setExtraTags((t) => (t.includes('Solicitud formulario') ? t : [...t, 'Solicitud formulario'])); setSource('Formulario web'); }
   };
   const onFile = async (f: File | undefined) => {
     if (!f) return;
     setError(null); setBusy('Analizando archivo…');
     try {
       const w = await readWorkbook(f);
-      setFile(f); setWb(w); setSource(f.name.replace(/\.[^.]+$/, ''));
+      setFile(f); setWb(w); setSource(f.name.replace(/\.[^.]+$/, '')); setExtraTags([]); setCreateLeads(false);
       // Por defecto, la hoja con más filas.
       const XLSX = await import('xlsx');
       const best = w.SheetNames.map((n) => ({ n, c: XLSX.utils.decode_range(w.Sheets[n]['!ref'] ?? 'A1').e.r })).sort((a, b) => b.c - a.c)[0].n;
@@ -71,7 +76,10 @@ export function ImportWizard() {
   const run = async () => {
     setBusy('Importando…');
     try {
-      const r = await executeImport(orgId, uid, plan, d.contacts, { fileName: file?.name ?? 'archivo', source: source.trim() || 'Importación', extraTags, createLeads }, setBusy);
+      const r = await executeImport(orgId, uid, plan, d, {
+        fileName: file?.name ?? 'archivo', source: source.trim() || 'Importación', extraTags, createLeads,
+        leadsForExisting: formsMode, leadNextStep: formsMode ? 'Llamar al cliente' : undefined,
+      }, setBusy);
       setResult(r); setStep('done'); toast('Importación completada');
     } catch (e) {
       console.error(e);
@@ -110,6 +118,7 @@ export function ImportWizard() {
               </select>
             </label>
           )}>
+          {formsMode && <div className="alert alert--ok">Detectadas respuestas de Microsoft Forms: se ignoran sus columnas internas, cada solicitud crea un lead "Nuevo" con próximo paso "Llamar al cliente" hoy y el mensaje queda como nota. Las respuestas ya importadas antes no se repiten.</div>}
           <p className="muted small">Indica a qué campo del CRM corresponde cada columna. Las columnas sin asignar no se importan.</p>
           <div className="map-grid">
             {headers.map((h) => (
@@ -173,7 +182,7 @@ export function ImportWizard() {
               <label className="field"><span>Origen (se guarda en cada empresa)</span><input value={source} onChange={(e) => setSource(e.target.value)} /></label>
               <label className="field"><span>Etiquetas para todo el lote</span><TagInput value={extraTags} onChange={setExtraTags} suggestions={d.allTags} /></label>
               <label className="check field--wide"><input type="checkbox" checked={createLeads} onChange={(e) => setCreateLeads(e.target.checked)} />
-                Crear también un lead "Nuevo" por cada empresa nueva ({num(counts.create)}) para trabajarlas como lista de llamadas</label>
+                {formsMode ? 'Crear un lead "Nuevo" por solicitud (también si la empresa ya existía y no tiene lead activo)' : `Crear también un lead "Nuevo" por cada empresa nueva (${num(counts.create)}) para trabajarlas como lista de llamadas`}</label>
             </div>
             <p className="muted small">Se escribirán unos {num(counts.create + counts.merge + counts.contacts + (createLeads ? counts.create : 0))} registros. El plan gratuito de Firebase permite 20.000 escrituras al día.</p>
             <div className="inline">
@@ -193,6 +202,8 @@ export function ImportWizard() {
             <li><strong>{num(result.companiesMerged)}</strong> empresas fusionadas</li>
             <li><strong>{num(result.contactsCreated)}</strong> contactos creados</li>
             <li><strong>{num(result.leadsCreated)}</strong> leads creados</li>
+            {result.notesCreated > 0 && <li><strong>{num(result.notesCreated)}</strong> mensajes guardados como nota</li>}
+            {result.skippedAlreadyImported > 0 && <li><strong>{num(result.skippedAlreadyImported)}</strong> respuestas ya importadas antes (omitidas)</li>}
           </ul>
           <p className="muted small">Puedes deshacerla desde Configuración › Datos (elimina lo creado; las fusiones se mantienen).</p>
           <button className="btn btn--secondary" onClick={reset}>Importar otro archivo</button>

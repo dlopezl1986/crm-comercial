@@ -11,7 +11,7 @@ export type FieldKey =
   | 'company.email' | 'company.phone' | 'company.website' | 'company.rating' | 'company.notes'
   | 'contact.fullName' | 'contact.firstName' | 'contact.lastName' | 'contact.jobTitle' | 'contact.department'
   | 'contact.email' | 'contact.phone' | 'contact.mobile' | 'contact.linkedin'
-  | 'tags';
+  | 'tags' | 'message' | 'externalId';
 
 export const FIELDS: { key: FieldKey; label: string; group: 'Empresa' | 'Contacto' | 'Otros'; synonyms: string[] }[] = [
   { key: 'company.name', label: 'Nombre de empresa', group: 'Empresa', synonyms: ['empresa', 'company', 'razon social', 'nombre empresa', 'cuenta', 'cliente', 'organizacion'] },
@@ -35,6 +35,8 @@ export const FIELDS: { key: FieldKey; label: string; group: 'Empresa' | 'Contact
   { key: 'contact.mobile', label: 'Móvil', group: 'Contacto', synonyms: ['movil', 'mobile', 'celular'] },
   { key: 'contact.linkedin', label: 'LinkedIn', group: 'Contacto', synonyms: ['linkedin'] },
   { key: 'tags', label: 'Etiquetas (separadas por ; o ,)', group: 'Otros', synonyms: ['etiquetas', 'tags', 'etiqueta'] },
+  { key: 'message', label: 'Mensaje / comentario (se guarda como nota)', group: 'Otros', synonyms: ['mensaje', 'comentario', 'consulta', 'en que podemos ayudarte'] },
+  { key: 'externalId', label: 'ID de respuesta (evita reimportar)', group: 'Otros', synonyms: ['id'] },
 ];
 
 export type Mapping = Record<string, FieldKey | ''>;
@@ -54,11 +56,45 @@ export async function sheetRows(wb: WorkBook, sheet: string): Promise<{ headers:
 }
 
 /** Propone un mapeo por nombre de columna (sin acentos ni mayúsculas). */
+/** Columnas que añade Microsoft Forms al exportar (datos internos, no respuestas). */
+const FORMS_META = ['hora de inicio', 'hora de finalizacion', 'correo electronico', 'nombre', 'hora de la ultima modificacion', 'puntos totales', 'comentarios del cuestionario'];
+const headerKey = (h: string) => norm(h).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+
+/** ¿Es una exportación de respuestas de Microsoft Forms? */
+export const isFormsExport = (headers: string[]) =>
+  ['id', 'hora de inicio', 'hora de finalizacion'].every((k) => headers.some((h) => headerKey(h) === k));
+
+/** Mapeo para las preguntas habituales de un formulario de contacto. */
+const FORMS_FIELDS: [RegExp, FieldKey][] = [
+  [/^id$/, 'externalId'],
+  [/^nombre y apellidos?$|^nombre completo$|^nombre$/, 'contact.fullName'],
+  [/^(email|e mail|correo|correo electronico de contacto|tu email)$/, 'contact.email'],
+  [/^(telefono|movil|telefono de contacto)$/, 'contact.phone'],
+  [/^(empresa|nombre de la empresa|compania)$/, 'company.name'],
+  [/^(cargo|cargo empresa|puesto)$/, 'contact.jobTitle'],
+  [/^(mensaje|comentario|comentarios|consulta)/, 'message'],
+  [/^(sector)$/, 'company.sector'],
+  [/^(ciudad|localidad|poblacion)$/, 'company.city'],
+];
+
 export function guessMapping(headers: string[]): Mapping {
   const used = new Set<FieldKey>();
   const m: Mapping = {};
+  if (isFormsExport(headers)) {
+    // Las primeras columnas son metadatos de Forms ("Nombre" y "Correo electrónico" de quien
+    // responde, normalmente "anónimo"); solo se mapean las preguntas.
+    const firstQuestion = headers.findIndex((h, i) => i > 0 && !FORMS_META.includes(headerKey(h)));
+    headers.forEach((h, i) => {
+      const k = headerKey(h);
+      const isMeta = i > 0 && i < firstQuestion && FORMS_META.includes(k);
+      const f = isMeta ? undefined : FORMS_FIELDS.find(([re, key]) => re.test(k) && !used.has(key));
+      m[h] = f?.[1] ?? '';
+      if (f) used.add(f[1]);
+    });
+    return m;
+  }
   for (const h of headers) {
-    const n = norm(h).trim();
+    const n = headerKey(h);
     const f = FIELDS.find((x) => !used.has(x.key) && x.synonyms.some((s) => n === s))
       ?? FIELDS.find((x) => !used.has(x.key) && x.synonyms.some((s) => s.length > 3 && n.startsWith(s)));
     m[h] = f?.key ?? '';
@@ -77,6 +113,8 @@ export interface ImportRecordRow {
   company: Partial<Company> & { name?: string };
   contact: { firstName?: string; lastName?: string; jobTitle?: string; department?: string; email?: string; phone?: string; mobile?: string; linkedin?: string };
   tags: string[];
+  message?: string;
+  externalId?: string;
 }
 
 export function mapRows(rows: Row[], mapping: Mapping): ImportRecordRow[] {
@@ -86,7 +124,9 @@ export function mapRows(rows: Row[], mapping: Mapping): ImportRecordRow[] {
       if (!key) continue;
       const v = clean(r[header]);
       if (!v) continue;
-      if (key === 'tags') out.tags.push(...v.split(/[;,]/).map((t) => t.trim()).filter(Boolean));
+      if (key === 'message') out.message = v;
+      else if (key === 'externalId') out.externalId = v;
+      else if (key === 'tags') out.tags.push(...v.split(/[;,]/).map((t) => t.trim()).filter(Boolean));
       else if (key === 'contact.fullName') {
         const [first, ...rest] = v.split(' ');
         out.contact.firstName = first; if (rest.length) out.contact.lastName = rest.join(' ');
@@ -146,8 +186,9 @@ export function planCompanies(records: ImportRecordRow[], existing: Company[]): 
         || (k.name && idx.name.get(k.name) && ['nombre', idx.name.get(k.name)!]);
       if (hit) {
         g.existing = hit[1] as Company; g.matchedBy = hit[0] as string;
-        // Propuesta por defecto: fusionar si coincide el CIF o es la misma localidad; si no, probablemente sea otra sede.
-        g.action = g.matchedBy === 'CIF' || norm(g.existing.city) === norm(r.company.city) ? 'merge' : 'create';
+        // Propuesta por defecto: fusionar si coincide el CIF, si es la misma localidad o si el archivo no
+        // indica localidad (p. ej. un formulario); con otra localidad, probablemente sea otra sede.
+        g.action = g.matchedBy === 'CIF' || !r.company.city || norm(g.existing.city) === norm(r.company.city) ? 'merge' : 'create';
       }
       groups.set(groupKey, g);
     } else {

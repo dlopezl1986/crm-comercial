@@ -168,6 +168,8 @@ export interface Activity extends BaseDoc {
   opportunityId?: ID | null;
   leadId?: ID | null;
   completedAt?: Timestamp | null;
+  /** Identificador en el sistema de origen (p. ej. ID de respuesta de Forms), para no importar dos veces. */
+  externalId?: string | null;
 }
 
 export interface Service extends BaseDoc {
@@ -204,6 +206,8 @@ export interface ImportRecord extends BaseDoc {
   companiesMerged: number;
   contactsCreated: number;
   leadsCreated: number;
+  notesCreated?: number;
+  skippedAlreadyImported?: number;
   undone?: boolean;
 }
 

@@ -2,21 +2,46 @@ import { addDoc, Timestamp } from 'firebase/firestore';
 import { orgCol } from '@/services/paths';
 import { bulkCreate, bulkUpdate, newRef, stamp } from '@/services/repository';
 import { digits, norm } from '@/lib/text';
-import type { Contact } from '@/types/models';
+import type { DataState } from '@/data/DataProvider';
 import type { PlannedCompany } from './importEngine';
 
-export interface ImportOptions { fileName: string; source: string; extraTags: string[]; createLeads: boolean }
-export interface ImportResult { companiesCreated: number; companiesMerged: number; contactsCreated: number; leadsCreated: number; batch: string }
+export interface ImportOptions {
+  fileName: string;
+  source: string;
+  extraTags: string[];
+  /** Crear lead "Nuevo" por empresa nueva. */
+  createLeads: boolean;
+  /** Crear lead también para empresas ya existentes que no tengan un lead activo (solicitudes entrantes). */
+  leadsForExisting?: boolean;
+  /** Próximo paso de los leads creados (p. ej. "Llamar al cliente" hoy). */
+  leadNextStep?: string;
+}
+export interface ImportResult {
+  companiesCreated: number; companiesMerged: number; contactsCreated: number; leadsCreated: number; notesCreated: number;
+  skippedAlreadyImported: number; batch: string;
+}
 
 /** Escribe el plan de importación en Firestore (por lotes) y registra la importación para poder deshacerla. */
 export async function executeImport(
-  orgId: string, uid: string, plan: PlannedCompany[], existingContacts: Contact[], opts: ImportOptions,
+  orgId: string, uid: string, plan: PlannedCompany[], d: DataState, opts: ImportOptions,
   onProgress: (msg: string) => void,
 ): Promise<ImportResult> {
   const batch = `imp_${Date.now().toString(36)}`;
+  const now = Timestamp.now();
+
+  // Respuestas ya importadas antes (por su ID externo): no se repiten.
+  const imported = new Set(d.activities.map((a) => (a as { externalId?: string }).externalId).filter(Boolean));
+  let skippedAlreadyImported = 0;
+  const active = plan.map((p) => {
+    const rows = p.rows.filter((r) => !(r.externalId && imported.has(r.externalId)));
+    skippedAlreadyImported += p.rows.length - rows.length;
+    return { ...p, rows };
+  }).filter((p) => p.rows.length > 0);
+
   const companyIdFor = new Map<PlannedCompany, string>();
-  const toCreate = plan.filter((p) => !p.existing || p.action === 'create');
-  const toMerge = plan.filter((p) => p.existing && p.action === 'merge');
+  const toCreate = active.filter((p) => !p.existing || p.action === 'create');
+  const toMerge = active.filter((p) => p.existing && p.action === 'merge');
+  const ignored = new Set(active.filter((p) => p.existing && p.action === 'ignore'));
 
   // 1. Empresas nuevas
   const newCompanies = toCreate.map((p) => {
@@ -36,30 +61,70 @@ export async function executeImport(
   });
   await bulkUpdate(orgId, 'companies', merges, (n) => onProgress(`Empresas fusionadas: ${n} / ${merges.length}`));
 
-  // 3. Contactos (se omiten los que ya existen con el mismo email o teléfono)
-  const seenEmail = new Set(existingContacts.map((c) => norm(c.email)).filter(Boolean));
-  const seenPhone = new Set(existingContacts.flatMap((c) => [digits(c.phone), digits(c.mobile)]).filter((p) => p.length >= 6));
+  // 3. Contactos: si ya existe uno con el mismo email/teléfono se reutiliza (no se duplica).
+  const contactByEmail = new Map(d.contacts.filter((c) => c.email).map((c) => [norm(c.email), c.id]));
+  const contactByPhone = new Map(d.contacts.flatMap((c) => [digits(c.phone), digits(c.mobile)].filter((x) => x.length >= 6).map((x) => [x, c.id] as const)));
   const contacts: Record<string, unknown>[] = [];
-  for (const p of plan) {
-    if (p.existing && p.action === 'ignore') continue;
+  const contactIdFor = new Map<PlannedCompany, string>();
+  const rowContact = new Map<object, string>();
+  for (const p of active) {
+    if (ignored.has(p)) continue;
     for (const r of p.rows) {
       if (!r.contact.firstName) continue;
       const e = norm(r.contact.email), ph = digits(r.contact.phone || r.contact.mobile);
-      if ((e && seenEmail.has(e)) || (ph.length >= 6 && seenPhone.has(ph))) continue;
-      if (e) seenEmail.add(e);
-      if (ph.length >= 6) seenPhone.add(ph);
-      contacts.push({ ...r.contact, companyId: companyIdFor.get(p) ?? null, tags: opts.extraTags, importBatch: batch });
+      let id = (e && contactByEmail.get(e)) || (ph.length >= 6 && contactByPhone.get(ph)) || '';
+      if (!id) {
+        id = newRef(orgId, 'contacts').id;
+        contacts.push({ id, ...r.contact, companyId: companyIdFor.get(p) ?? null, tags: opts.extraTags, importBatch: batch });
+        if (e) contactByEmail.set(e, id);
+        if (ph.length >= 6) contactByPhone.set(ph, id);
+      }
+      rowContact.set(r, id);
+      if (!contactIdFor.has(p)) contactIdFor.set(p, id);
     }
   }
   await bulkCreate(orgId, 'contacts', uid, contacts, (n) => onProgress(`Contactos creados: ${n} / ${contacts.length}`));
 
-  // 4. Leads opcionales, uno por empresa nueva
-  const leads = opts.createLeads ? newCompanies.map((c) => ({
-    title: c.name, companyId: c.id, status: 'new', source: opts.source, tags: c.tags, importBatch: batch,
-  })) : [];
+  // 4. Leads (empresas nuevas y, si se pide, existentes sin lead activo)
+  const activeLead = new Map(d.leads.filter((l) => l.companyId && l.status !== 'converted' && l.status !== 'disqualified').map((l) => [l.companyId!, l.id]));
+  const leadIdFor = new Map<PlannedCompany, string>();
+  const leads: Record<string, unknown>[] = [];
+  if (opts.createLeads) {
+    for (const p of active) {
+      if (ignored.has(p)) continue;
+      const companyId = companyIdFor.get(p)!;
+      const isNew = toCreate.includes(p);
+      if (!isNew && (!opts.leadsForExisting || activeLead.has(companyId))) { if (activeLead.has(companyId)) leadIdFor.set(p, activeLead.get(companyId)!); continue; }
+      const id = newRef(orgId, 'leads').id;
+      leadIdFor.set(p, id);
+      leads.push({
+        id, title: p.data.name, companyId, contactId: contactIdFor.get(p) ?? null, status: 'new', source: opts.source,
+        tags: [...new Set([...p.tags, ...opts.extraTags])], importBatch: batch,
+        ...(opts.leadNextStep ? { nextStep: opts.leadNextStep, nextStepAt: now } : {}),
+      });
+    }
+  }
   await bulkCreate(orgId, 'leads', uid, leads, (n) => onProgress(`Leads creados: ${n} / ${leads.length}`));
 
-  const result = { companiesCreated: newCompanies.length, companiesMerged: merges.length, contactsCreated: contacts.length, leadsCreated: leads.length, batch };
+  // 5. Mensajes como notas en el historial
+  const notes: Record<string, unknown>[] = [];
+  for (const p of active) {
+    if (ignored.has(p)) continue;
+    for (const r of p.rows) {
+      if (!r.message && !r.externalId) continue;
+      notes.push({
+        type: 'note', title: `Solicitud recibida (${opts.source})`, description: r.message ?? '', dueAt: now, completedAt: now, status: 'done',
+        companyId: companyIdFor.get(p) ?? null, contactId: rowContact.get(r) ?? null, leadId: leadIdFor.get(p) ?? null, opportunityId: null,
+        externalId: r.externalId ?? null, importBatch: batch,
+      });
+    }
+  }
+  await bulkCreate(orgId, 'activities', uid, notes, (n) => onProgress(`Notas creadas: ${n} / ${notes.length}`));
+
+  const result = {
+    companiesCreated: newCompanies.length, companiesMerged: merges.length, contactsCreated: contacts.length,
+    leadsCreated: leads.length, notesCreated: notes.length, skippedAlreadyImported, batch,
+  };
   await addDoc(orgCol(orgId, 'imports'), { fileName: opts.fileName, ...result, ...stamp(uid), updatedAt: Timestamp.now() });
   return result;
 }
