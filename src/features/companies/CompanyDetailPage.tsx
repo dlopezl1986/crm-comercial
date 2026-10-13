@@ -66,7 +66,7 @@ export function CompanyDetailPage() {
       <DetailHeader
         avatar={<Building2 size={22} />}
         title={company.name}
-        subtitle={[company.sector, company.city].filter(Boolean).join(' · ')}
+        subtitle={[company.sector, company.subsector, company.city].filter(Boolean).join(' · ')}
         actions={<>
           <button className="btn btn--primary" onClick={() => setDialog('call')}><Phone size={15} /> Registrar llamada</button>
           <button className="btn btn--secondary" onClick={() => setDialog('activity')}><Plus size={15} /> Actividad</button>

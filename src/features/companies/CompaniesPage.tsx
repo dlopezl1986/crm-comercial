@@ -19,6 +19,8 @@ import { matches, uniqueSorted } from '@/lib/text';
 import { num } from '@/lib/format';
 import { relativeDay, tsToDate } from '@/lib/dates';
 import { CompanyForm } from './CompanyForm';
+import { SectorFilters } from '@/components/form/SectorFilters';
+import { RegroupBanner } from '@/features/settings/RegroupSectors';
 import { BulkTagDialog, applyTags } from '@/features/shared/BulkTagDialog';
 
 const PAGE = 50;
@@ -30,6 +32,7 @@ export function CompaniesPage() {
   const toast = useToast();
   const [q, setQ] = usePersistentState('companies.q', '');
   const [sector, setSector] = usePersistentState('companies.sector', '');
+  const [subsector, setSubsector] = usePersistentState('companies.subsector', '');
   const [city, setCity] = usePersistentState('companies.city', '');
   const [tag, setTag] = usePersistentState('companies.tag', '');
   const [sort, setSort] = usePersistentState<Sort>('companies.sort', 'name');
@@ -47,20 +50,19 @@ export function CompaniesPage() {
     return m;
   }, [contacts, opportunities, leads]);
 
-  const sectors = useMemo(() => uniqueSorted(companies.map((c) => c.sector)), [companies]);
   const cities = useMemo(() => uniqueSorted(companies.map((c) => c.city)), [companies]);
   const tags = useMemo(() => uniqueSorted(companies.flatMap((c) => c.tags ?? [])), [companies]);
 
   const filtered = useMemo(() => {
     const list = companies.filter((c) =>
-      (!sector || c.sector === sector) && (!city || c.city === city) && (!tag || c.tags?.includes(tag)) &&
-      matches(q, [c.name, c.cif, c.email, c.phone, c.city, c.sector, c.website]));
+      (!sector || c.sector === sector) && (!subsector || c.subsector === subsector) && (!city || c.city === city) && (!tag || c.tags?.includes(tag)) &&
+      matches(q, [c.name, c.cif, c.email, c.phone, c.city, c.sector, c.subsector, c.website]));
     const time = (x: unknown) => tsToDate(x as never)?.getTime() ?? 0;
     return list.sort((a, b) =>
       sort === 'recent' ? time(b.createdAt) - time(a.createdAt)
         : sort === 'activity' ? time(b.lastActivityAt) - time(a.lastActivityAt)
           : a.name.localeCompare(b.name, 'es'));
-  }, [companies, q, sector, city, tag, sort]);
+  }, [companies, q, sector, subsector, city, tag, sort]);
 
   const pageItems = filtered.slice(page * PAGE, page * PAGE + PAGE);
   const resetPage = <T,>(fn: (v: T) => void) => (v: T) => { fn(v); setPage(0); sel.clear(); };
@@ -96,9 +98,10 @@ export function CompaniesPage() {
       <PageHeader title="Empresas" subtitle={`${num(companies.length)} empresas`}
         actions={<button className="btn btn--primary" onClick={() => setCreating(true)}><Plus size={16} /> Nueva empresa</button>} />
 
+      <RegroupBanner />
       <div className="toolbar">
         <SearchInput value={q} onChange={resetPage(setQ)} placeholder="Buscar por nombre, CIF, email, teléfono…" />
-        <FilterSelect label="Sector" value={sector} onChange={resetPage(setSector)} options={sectors.map((s) => ({ value: s, label: s }))} />
+        <SectorFilters companies={companies} sector={sector} subsector={subsector} onSector={resetPage(setSector)} onSubsector={resetPage(setSubsector)} />
         <FilterSelect label="Ciudad" value={city} onChange={resetPage(setCity)} options={cities.map((s) => ({ value: s, label: s }))} />
         <FilterSelect label="Etiqueta" value={tag} onChange={resetPage(setTag)} options={tags.map((s) => ({ value: s, label: s }))} />
         <select className="filter-select" value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="Ordenar">
@@ -140,7 +143,7 @@ export function CompaniesPage() {
                   <tr key={c.id} className={sel.selected.has(c.id) ? 'selected' : ''}>
                     <td className="col-check"><input type="checkbox" checked={sel.selected.has(c.id)} onChange={() => sel.toggle(c.id)} /></td>
                     <td><Link to={`/empresas/${c.id}`} className="strong-link">{c.name}</Link></td>
-                    <td className="muted truncate">{c.sector}</td>
+                    <td className="muted"><div className="truncate">{c.sector}</div>{c.subsector && <div className="small truncate">{c.subsector}</div>}</td>
                     <td className="muted">{c.city}</td>
                     <td className="nowrap">{c.phone && <a href={`tel:${c.phone}`}>{c.phone}</a>}</td>
                     <td className="truncate">{c.email && <a href={`mailto:${c.email}`}>{c.email}</a>}</td>

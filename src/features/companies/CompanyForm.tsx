@@ -10,10 +10,11 @@ import { useSession } from '@/auth/AuthProvider';
 import { useData } from '@/data/DataProvider';
 import { createItem, updateItem } from '@/services/repository';
 import { CustomFieldsEditor } from '@/features/customFields/CustomFieldsEditor';
+import { SECTORS, classifySector } from '@/domain/sectors';
 import { digits, norm, uniqueSorted } from '@/lib/text';
 import type { Company } from '@/types/models';
 
-const EMPTY = { name: '', cif: '', sector: '', city: '', province: '', address: '', email: '', phone: '', website: '', notes: '' };
+const EMPTY = { name: '', cif: '', sector: '', subsector: '', city: '', province: '', address: '', email: '', phone: '', website: '', notes: '' };
 type Values = typeof EMPTY;
 
 /** Posibles duplicados de una empresa por CIF, email, teléfono o nombre. */
@@ -38,7 +39,7 @@ export function CompanyForm({ company, onClose }: { company?: Company; onClose: 
   const [busy, setBusy] = useState(false);
   const set = (k: keyof Values) => (e: { target: { value: string } }) => setV((s) => ({ ...s, [k]: e.target.value }));
 
-  const sectors = useMemo(() => uniqueSorted(companies.map((c) => c.sector)), [companies]);
+  const subsectors = useMemo(() => uniqueSorted(companies.filter((c) => !v.sector || c.sector === v.sector).map((c) => c.subsector)), [companies, v.sector]);
   const cities = useMemo(() => uniqueSorted(companies.map((c) => c.city)), [companies]);
   const dups = useMemo(() => findCompanyDuplicates(companies, v, company?.id).slice(0, 3), [companies, v, company?.id]);
 
@@ -77,7 +78,14 @@ export function CompanyForm({ company, onClose }: { company?: Company; onClose: 
         <div className="form-grid">
           <TextField label="Nombre *" value={v.name} onChange={set('name')} autoFocus wide />
           <TextField label="CIF" value={v.cif} onChange={set('cif')} />
-          <TextField label="Sector" value={v.sector} onChange={set('sector')} options={sectors} />
+          <Field label="Sector">
+            <select value={v.sector} onChange={set('sector')}>
+              <option value="">—</option>
+              {SECTORS.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </Field>
+          <TextField label="Subsector" value={v.subsector} onChange={set('subsector')} options={subsectors}
+            onBlur={() => { if (!v.sector && v.subsector.trim()) setV((s) => ({ ...s, sector: classifySector(s.subsector) })); }} />
           <TextField label="Email" type="email" value={v.email} onChange={set('email')} />
           <TextField label="Teléfono" value={v.phone} onChange={set('phone')} />
           <TextField label="Web" value={v.website} onChange={set('website')} />

@@ -4,10 +4,11 @@
  */
 import type { WorkBook } from 'xlsx';
 import { digits, norm } from '@/lib/text';
+import { resolveSector } from '@/domain/sectors';
 import type { Company } from '@/types/models';
 
 export type FieldKey =
-  | 'company.name' | 'company.cif' | 'company.sector' | 'company.city' | 'company.province' | 'company.address'
+  | 'company.name' | 'company.cif' | 'company.sector' | 'company.subsector' | 'company.city' | 'company.province' | 'company.address'
   | 'company.email' | 'company.phone' | 'company.website' | 'company.rating' | 'company.notes'
   | 'contact.fullName' | 'contact.firstName' | 'contact.lastName' | 'contact.jobTitle' | 'contact.department'
   | 'contact.email' | 'contact.phone' | 'contact.mobile' | 'contact.linkedin'
@@ -16,7 +17,8 @@ export type FieldKey =
 export const FIELDS: { key: FieldKey; label: string; group: 'Empresa' | 'Contacto' | 'Otros'; synonyms: string[] }[] = [
   { key: 'company.name', label: 'Nombre de empresa', group: 'Empresa', synonyms: ['empresa', 'company', 'razon social', 'nombre empresa', 'cuenta', 'cliente', 'organizacion'] },
   { key: 'company.cif', label: 'CIF', group: 'Empresa', synonyms: ['cif', 'nif', 'vat', 'cif/nif'] },
-  { key: 'company.sector', label: 'Sector', group: 'Empresa', synonyms: ['sector', 'sector/categoria', 'categoria', 'industria', 'actividad'] },
+  { key: 'company.sector', label: 'Sector / categoría', group: 'Empresa', synonyms: ['sector', 'sector categoria', 'sector/categoria', 'industria'] },
+  { key: 'company.subsector', label: 'Subsector', group: 'Empresa', synonyms: ['subsector', 'categoria', 'actividad', 'tipo de empresa'] },
   { key: 'company.city', label: 'Ciudad', group: 'Empresa', synonyms: ['ciudad', 'localidad', 'poblacion', 'municipio', 'city'] },
   { key: 'company.province', label: 'Provincia', group: 'Empresa', synonyms: ['provincia', 'region', 'state'] },
   { key: 'company.address', label: 'Dirección', group: 'Empresa', synonyms: ['direccion', 'domicilio', 'address'] },
@@ -138,6 +140,12 @@ export function mapRows(rows: Row[], mapping: Mapping): ImportRecordRow[] {
         (out[ent] as Record<string, string>)[field] = v;
       }
     }
+    // Sector = grupo; la categoría detallada se guarda como subsector.
+    const sec = resolveSector(out.company.sector, out.company.subsector);
+    out.company.sector = sec.sector;
+    out.company.subsector = sec.subsector;
+    if (!out.company.sector) delete out.company.sector;
+    if (!out.company.subsector) delete out.company.subsector;
     return out;
   }).filter((r) => r.company.name || r.contact.firstName);
 }

@@ -137,9 +137,9 @@ export function ImportWizard() {
           <h3 className="h3">Vista previa ({num(records.length)} registros válidos)</h3>
           <div className="table-scroll">
             <table className="table table--compact">
-              <thead><tr><th>Empresa</th><th>Sector</th><th>Ciudad</th><th>Email</th><th>Teléfono</th><th>Contacto</th><th>Etiquetas</th></tr></thead>
+              <thead><tr><th>Empresa</th><th>Sector</th><th>Subsector</th><th>Ciudad</th><th>Email</th><th>Teléfono</th><th>Contacto</th><th>Etiquetas</th></tr></thead>
               <tbody>{records.slice(0, 10).map((r) => (
-                <tr key={r.index}><td>{r.company.name}</td><td>{r.company.sector}</td><td>{r.company.city}</td><td>{r.company.email ?? r.contact.email}</td>
+                <tr key={r.index}><td>{r.company.name}</td><td>{r.company.sector}</td><td>{r.company.subsector}</td><td>{r.company.city}</td><td>{r.company.email ?? r.contact.email}</td>
                   <td>{r.company.phone ?? r.contact.phone}</td><td>{[r.contact.firstName, r.contact.lastName].filter(Boolean).join(' ')}{r.contact.jobTitle ? ` (${r.contact.jobTitle})` : ''}</td><td>{r.tags.join(', ')}</td></tr>
               ))}</tbody>
             </table>

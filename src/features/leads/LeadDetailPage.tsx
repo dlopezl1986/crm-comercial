@@ -103,6 +103,7 @@ export function LeadDetailPage() {
                 <dt>Email</dt><dd>{(ct?.email || co.email) ? <a href={`mailto:${ct?.email || co.email}`}>{ct?.email || co.email}</a> : '—'}</dd>
                 <dt>Web</dt><dd>{co.website ? <a href={asUrl(co.website)} target="_blank" rel="noreferrer">{co.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</a> : '—'}</dd>
                 <dt>Sector</dt><dd>{co.sector || '—'}</dd>
+                <dt>Subsector</dt><dd>{co.subsector || '—'}</dd>
                 <dt>Ciudad</dt><dd>{co.city || '—'}</dd>
               </dl>
             ) : <p className="muted small">Sin empresa asociada.</p>}

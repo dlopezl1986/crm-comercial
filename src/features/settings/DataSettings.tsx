@@ -11,6 +11,7 @@ import { clearDemoData, demoCount, loadDemoData } from '@/services/demoData';
 import { formatDateTime } from '@/lib/dates';
 import { num } from '@/lib/format';
 import type { ImportRecord } from '@/types/models';
+import { RegroupBanner } from './RegroupSectors';
 
 export function DataSettings() {
   const d = useData();
@@ -37,6 +38,7 @@ export function DataSettings() {
 
   return (
     <div className="settings">
+      <RegroupBanner />
       <Card title="Datos de demostración" icon={FlaskConical}>
         <p className="muted">Empresas, oportunidades y actividades ficticias para probar el dashboard, el pipeline, los gráficos y el calendario.
           Van marcadas como demo y con la etiqueta <span className="tag">Demo</span>; se eliminan todas de golpe sin tocar tus datos reales.</p>

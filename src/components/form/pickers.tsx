@@ -8,7 +8,7 @@ interface P { value: string | null | undefined; onChange: (id: string | null) =>
 export function CompanyPicker(p: P) {
   const { companies } = useData();
   const options = useMemo(
-    () => companies.map((c) => ({ id: c.id, label: c.name, sub: [c.city, c.sector].filter(Boolean).join(' · ') }))
+    () => companies.map((c) => ({ id: c.id, label: c.name, sub: [c.city, c.subsector || c.sector].filter(Boolean).join(' · ') }))
       .sort((a, b) => a.label.localeCompare(b.label, 'es')),
     [companies],
   );

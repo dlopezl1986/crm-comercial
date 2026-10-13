@@ -12,7 +12,7 @@ import { usePersistentState } from '@/hooks/usePersistentState';
 import { formatDateTime } from '@/lib/dates';
 import { num } from '@/lib/format';
 import type { Campaign } from '@/types/models';
-import { batchEmails, campaignStatus, emailHtml, markBatchSent, markOptOuts } from './campaignLogic';
+import { batchEmails, campaignStatus, emailHtml, markBatchSent, markOptOuts, segmentLabel } from './campaignLogic';
 import { CampaignForm } from './CampaignForm';
 
 async function copy(text: string) {
@@ -60,7 +60,7 @@ function CampaignDetail({ campaign: c }: { campaign: Campaign }) {
 
   const download = async () => {
     const XLSX = await import('xlsx');
-    const ws = XLSX.utils.json_to_sheet(st.nextBatch.map((co) => ({ Email: co.email, Empresa: co.name, Sector: co.sector ?? '', Ciudad: co.city ?? '' })));
+    const ws = XLSX.utils.json_to_sheet(st.nextBatch.map((co) => ({ Email: co.email, Empresa: co.name, Sector: co.sector ?? '', Subsector: co.subsector ?? '', Ciudad: co.city ?? '' })));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Lote');
     XLSX.writeFile(wb, `Lote_${c.name.replace(/\W+/g, '_')}_${c.sentCount + 1}.xlsx`);
@@ -79,7 +79,7 @@ function CampaignDetail({ campaign: c }: { campaign: Campaign }) {
   return (
     <div className="stack">
       <div className="kpis kpis--4">
-        <div className="kpi"><div className="kpi__label">Destinatarios del segmento</div><div className="kpi__value">{num(st.eligible)}</div><div className="kpi__sub">{c.segmentTags.join(', ') || 'Todas las empresas'}{c.segmentSector ? ` · ${c.segmentSector}` : ''}</div></div>
+        <div className="kpi"><div className="kpi__label">Destinatarios del segmento</div><div className="kpi__value">{num(st.eligible)}</div><div className="kpi__sub">{segmentLabel(c)}</div></div>
         <div className="kpi"><div className="kpi__label">Enviados</div><div className="kpi__value">{num(st.sent.length)}</div><div className="kpi__sub">{pct} % · último lote {c.lastBatchAt ? formatDateTime(c.lastBatchAt) : '—'}</div></div>
         <div className="kpi"><div className="kpi__label">Pendientes</div><div className="kpi__value">{num(st.pending.length)}</div><div className="kpi__sub">≈ {Math.ceil(st.pending.length / c.batchSize)} lotes de {c.batchSize}</div></div>
         <div className="kpi"><div className="kpi__label">Bajas</div><div className="kpi__value">{num(st.optOuts)}</div><div className="kpi__sub">nunca reciben campañas</div></div>

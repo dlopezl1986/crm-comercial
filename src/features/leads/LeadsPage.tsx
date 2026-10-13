@@ -25,6 +25,7 @@ import type { Lead, LeadStatus } from '@/types/models';
 import { ActivityDialog } from '@/features/activities/ActivityDialog';
 import { BulkTagDialog, applyTags } from '@/features/shared/BulkTagDialog';
 import { LeadForm } from './LeadForm';
+import { SectorFilters } from '@/components/form/SectorFilters';
 
 const PAGE = 50;
 type Tab = 'active' | LeadStatus | 'all';
@@ -37,6 +38,7 @@ export function LeadsPage() {
   const [q, setQ] = usePersistentState('leads.q', '');
   const [tag, setTag] = usePersistentState('leads.tag', '');
   const [sector, setSector] = usePersistentState('leads.sector', '');
+  const [subsector, setSubsector] = usePersistentState('leads.subsector', '');
   const [next, setNext] = usePersistentState('leads.next', '');
   const [page, setPage] = useState(0);
   const [creating, setCreating] = useState(false);
@@ -50,24 +52,25 @@ export function LeadsPage() {
     return c;
   }, [d.leads]);
   const tags = useMemo(() => uniqueSorted(d.leads.flatMap((l) => l.tags ?? [])), [d.leads]);
-  const sectors = useMemo(() => uniqueSorted(d.leads.map((l) => l.companyId ? d.companyById.get(l.companyId)?.sector : undefined)), [d.leads, d.companyById]);
+  const leadCompanies = useMemo(() => d.leads.map((l) => (l.companyId ? d.companyById.get(l.companyId) : undefined)).filter(Boolean) as typeof d.companies, [d.leads, d.companyById]);
 
   const filtered = useMemo(() => d.leads.filter((l) => {
     if (tab === 'active' ? (l.status === 'converted' || l.status === 'disqualified') : tab !== 'all' && l.status !== tab) return false;
     if (tag && !l.tags?.includes(tag)) return false;
     const co = l.companyId ? d.companyById.get(l.companyId) : undefined;
     if (sector && co?.sector !== sector) return false;
+    if (subsector && co?.subsector !== subsector) return false;
     if (next) {
       const w = whenOf(l.nextStepAt);
       if (next === 'none' ? !!l.nextStep : next === 'due' ? !(w === 'overdue' || w === 'today') : w !== next) return false;
     }
-    return matches(q, [l.title, co?.name, co?.phone, co?.email, co?.city, co?.sector, l.source]);
+    return matches(q, [l.title, co?.name, co?.phone, co?.email, co?.city, co?.sector, co?.subsector, l.source]);
   }).sort((a, b) => {
     // Primero lo que toca hoy o está atrasado, después sin próximo paso, después el resto por fecha.
     const ta = tsToDate(a.nextStepAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
     const tb = tsToDate(b.nextStepAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
     return ta - tb || a.title.localeCompare(b.title, 'es');
-  }), [d.leads, d.companyById, tab, q, tag, sector, next]);
+  }), [d.leads, d.companyById, tab, q, tag, sector, subsector, next]);
 
   const reset = <T,>(fn: (v: T) => void) => (v: T) => { fn(v); setPage(0); sel.clear(); };
   const ids = [...sel.selected];
@@ -85,7 +88,7 @@ export function LeadsPage() {
       <div className="toolbar">
         <SearchInput value={q} onChange={reset(setQ)} placeholder="Buscar lead, empresa, teléfono, ciudad…" />
         <FilterSelect label="Etiqueta" value={tag} onChange={reset(setTag)} options={tags.map((t) => ({ value: t, label: t }))} />
-        <FilterSelect label="Sector" value={sector} onChange={reset(setSector)} options={sectors.map((t) => ({ value: t, label: t }))} />
+        <SectorFilters companies={leadCompanies} sector={sector} subsector={subsector} onSector={reset(setSector)} onSubsector={reset(setSubsector)} />
         <FilterSelect label="Próximo paso" value={next} onChange={reset(setNext)} options={[
           { value: 'due', label: 'Hoy o atrasado' }, { value: 'tomorrow', label: 'Mañana' }, { value: 'none', label: 'Sin próximo paso' },
         ]} />
@@ -118,7 +121,7 @@ export function LeadsPage() {
                   <tr key={l.id} className={sel.selected.has(l.id) ? 'selected' : ''}>
                     <td className="col-check"><input type="checkbox" checked={sel.selected.has(l.id)} onChange={() => sel.toggle(l.id)} /></td>
                     <td><Link to={`/leads/${l.id}`} className="strong-link">{l.title}</Link>
-                      {co && <div className="muted small truncate">{[co.sector, co.city].filter(Boolean).join(' · ')}</div>}</td>
+                      {co && <div className="muted small truncate">{[co.subsector || co.sector, co.city].filter(Boolean).join(' · ')}</div>}</td>
                     <td className="nowrap">{tel && <a href={`tel:${tel}`}>{tel}</a>}</td>
                     <td><Badge color={LEAD_STATUS[l.status].color}>{LEAD_STATUS[l.status].label}</Badge></td>
                     <td>{l.nextStep ? <span className="inline">{l.nextStep} <WhenBadge when={whenOf(l.nextStepAt)} /></span> : <span className="muted small">—</span>}</td>

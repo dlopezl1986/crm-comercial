@@ -58,7 +58,10 @@ export interface OrgSettings {
 export interface Company extends BaseDoc {
   name: string;
   cif?: string;
+  /** Sector (grupo), ver domain/sectors.ts. */
   sector?: string;
+  /** Subsector: categoría detallada (p. ej. "Empresa de transporte por camión"). */
+  subsector?: string;
   city?: string;
   province?: string;
   address?: string;
@@ -223,7 +226,12 @@ export interface Campaign extends BaseDoc {
   footer: string;
   /** Segmento: empresas con alguna de estas etiquetas (vacío = todas). */
   segmentTags: string[];
+  /** @deprecated usar segmentSectors */
   segmentSector?: string;
+  /** Segmento: sectores (vacío = todos). */
+  segmentSectors?: string[];
+  /** Segmento: subsectores concretos dentro de esos sectores (vacío = todos). */
+  segmentSubsectors?: string[];
   batchSize: number;
   sentCount: number;
   lastBatchAt?: Timestamp | null;

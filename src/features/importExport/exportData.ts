@@ -16,7 +16,7 @@ export function exportRows(d: DataState, e: ExportEntity): Record<string, unknow
   const ct = (id?: string | null) => { const c = id ? d.contactById.get(id) : undefined; return c ? fullName(c) : ''; };
   switch (e) {
     case 'companies': return d.companies.map((c) => ({
-      Empresa: c.name, CIF: c.cif ?? '', Sector: c.sector ?? '', Ciudad: c.city ?? '', Provincia: c.province ?? '', Dirección: c.address ?? '',
+      Empresa: c.name, CIF: c.cif ?? '', Sector: c.sector ?? '', Subsector: c.subsector ?? '', Ciudad: c.city ?? '', Provincia: c.province ?? '', Dirección: c.address ?? '',
       Email: c.email ?? '', Teléfono: c.phone ?? '', Web: c.website ?? '', Etiquetas: tags(c.tags), Notas: c.notes ?? '',
       'Fecha de creación': formatDate(c.createdAt), 'Última actividad': c.lastActivityAt ? formatDate(c.lastActivityAt) : '',
     }));

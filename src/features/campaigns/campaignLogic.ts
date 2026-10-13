@@ -8,11 +8,25 @@ const EMAIL_RE = /^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]+$/;
 export const validEmail = (e?: string) => !!e && EMAIL_RE.test(e.trim());
 
 /** Empresas del segmento con email válido y sin baja. */
-export function segment(d: DataState, c: Pick<Campaign, 'segmentTags' | 'segmentSector'>) {
+export type Segment = Pick<Campaign, 'segmentTags' | 'segmentSector' | 'segmentSectors' | 'segmentSubsectors'>;
+
+/** Sectores del segmento (compatibilidad con campañas de un solo sector). */
+export const segmentSectorsOf = (c: Segment) => c.segmentSectors?.length ? c.segmentSectors : c.segmentSector ? [c.segmentSector] : [];
+
+export function segment(d: DataState, c: Segment) {
+  const sectors = segmentSectorsOf(c);
+  const subs = c.segmentSubsectors ?? [];
   return d.companies.filter((co) =>
     validEmail(co.email) && !co.emailOptOut &&
     (!c.segmentTags.length || c.segmentTags.some((t) => co.tags?.includes(t))) &&
-    (!c.segmentSector || co.sector === c.segmentSector));
+    (!sectors.length || sectors.includes(co.sector ?? '')) &&
+    (!subs.length || subs.includes(co.subsector ?? '')));
+}
+
+/** Descripción corta del segmento. */
+export function segmentLabel(c: Segment) {
+  const parts = [c.segmentTags.join(', '), segmentSectorsOf(c).join(', '), (c.segmentSubsectors ?? []).join(', ')].filter(Boolean);
+  return parts.join(' · ') || 'Todas las empresas';
 }
 
 export interface CampaignStatus {

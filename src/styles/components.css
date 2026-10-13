@@ -314,3 +314,8 @@
 .email-preview { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: #fff; max-height: 520px; overflow-y: auto; }
 .batch-list ul { max-height: 240px; overflow-y: auto; font-size: 13px; padding-left: 18px; }
 .textarea { width: 100%; padding: 8px 12px; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); resize: vertical; }
+.regroup-banner { margin-bottom: 14px; }
+.regroup-banner .btn { margin-left: auto; }
+.regroup-list { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 4px; color: var(--text); }
+.regroup-list li { display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding: 3px 0; }
+.chip-group { display: flex; flex-wrap: wrap; gap: 6px; max-height: 180px; overflow-y: auto; }
