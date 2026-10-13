@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { useOrg } from '@/auth/AuthProvider';
 import { syncCollection } from '@/services/sync';
 import type { OrgCollection } from '@/services/paths';
-import type { Activity, Company, Contact, CustomFieldDef, ImportRecord, Lead, Opportunity, Service, Tag } from '@/types/models';
+import type { Activity, Campaign, Company, Contact, CustomFieldDef, ImportRecord, Lead, Opportunity, Service, Tag } from '@/types/models';
 
 /**
  * Datos de la organización en memoria, sincronizados con Firestore (services/sync.ts).
@@ -19,6 +19,7 @@ export interface DataState {
   tags: Tag[];
   customFields: CustomFieldDef[];
   imports: ImportRecord[];
+  campaigns: Campaign[];
   companyById: Map<string, Company>;
   contactById: Map<string, Contact>;
   leadById: Map<string, Lead>;
@@ -32,9 +33,9 @@ export interface DataState {
 
 type Raw = {
   companies: Company[]; contacts: Contact[]; leads: Lead[]; opportunities: Opportunity[];
-  activities: Activity[]; services: Service[]; tags: Tag[]; customFields: CustomFieldDef[]; imports: ImportRecord[];
+  activities: Activity[]; services: Service[]; tags: Tag[]; customFields: CustomFieldDef[]; imports: ImportRecord[]; campaigns: Campaign[];
 };
-const KEYS: (keyof Raw & OrgCollection)[] = ['companies', 'contacts', 'leads', 'opportunities', 'activities', 'services', 'tags', 'customFields', 'imports'];
+const KEYS: (keyof Raw & OrgCollection)[] = ['companies', 'contacts', 'leads', 'opportunities', 'activities', 'services', 'tags', 'customFields', 'imports', 'campaigns'];
 
 const DataContext = createContext<DataState | null>(null);
 const byId = <T extends { id: string }>(xs: T[]) => new Map(xs.map((x) => [x.id, x]));
@@ -72,7 +73,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<DataState>(() => ({
     companies, contacts, leads, opportunities,
-    activities: raw.activities ?? empty, tags: raw.tags ?? empty, imports: raw.imports ?? empty,
+    activities: raw.activities ?? empty, tags: raw.tags ?? empty, imports: raw.imports ?? empty, campaigns: raw.campaigns ?? empty,
     services, customFields, companyById, contactById, leadById, opportunityById, serviceById, allTags,
     ready: KEYS.every((k) => raw[k] !== undefined),
     error,

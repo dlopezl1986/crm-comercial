@@ -69,6 +69,11 @@ export interface Company extends BaseDoc {
   rating?: number; // valoración pública (p.ej. Google)
   source?: string; // origen del registro (importación, web, referido…)
   lastActivityAt?: Timestamp;
+  /** No quiere recibir comunicaciones comerciales por email (baja). */
+  emailOptOut?: boolean;
+  emailOptOutAt?: Timestamp | null;
+  /** Campañas de email ya enviadas a esta empresa. */
+  campaignIds?: string[];
 }
 
 export type ContactPreference = 'phone' | 'mobile' | 'email' | 'linkedin';
@@ -200,4 +205,22 @@ export interface ImportRecord extends BaseDoc {
   contactsCreated: number;
   leadsCreated: number;
   undone?: boolean;
+}
+
+/** Campaña de email por lotes (orgs/{orgId}/campaigns/{id}). */
+export interface Campaign extends BaseDoc {
+  name: string;
+  subject: string;
+  /** Enlace al que lleva la imagen (formulario). */
+  linkUrl: string;
+  /** Imagen del email (URL pública). */
+  imageUrl: string;
+  /** Pie con identificación del remitente e instrucciones de baja. */
+  footer: string;
+  /** Segmento: empresas con alguna de estas etiquetas (vacío = todas). */
+  segmentTags: string[];
+  segmentSector?: string;
+  batchSize: number;
+  sentCount: number;
+  lastBatchAt?: Timestamp | null;
 }

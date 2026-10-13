@@ -26,6 +26,7 @@ const CalendarPage = named(() => import('@/features/calendar/CalendarPage'), 'Ca
 const ServicesPage = named(() => import('@/features/services/ServicesPage'), 'ServicesPage');
 const ReportsPage = named(() => import('@/features/reports/ReportsPage'), 'ReportsPage');
 const ImportExportPage = named(() => import('@/features/importExport/ImportExportPage'), 'ImportExportPage');
+const CampaignsPage = named(() => import('@/features/campaigns/CampaignsPage'), 'CampaignsPage');
 const SettingsPage = named(() => import('@/pages/SettingsPage'), 'SettingsPage');
 
 // HashRouter: compatible con hosting estático (GitHub Pages) sin reescrituras de rutas.
@@ -51,6 +52,7 @@ export function App() {
                   <Route path="/actividades" element={<ActivitiesPage />} />
                   <Route path="/calendario" element={<CalendarPage />} />
                   <Route path="/servicios" element={<ServicesPage />} />
+                  <Route path="/campanas" element={<CampaignsPage />} />
                   <Route path="/informes" element={<ReportsPage />} />
                   <Route path="/importar" element={<ImportExportPage />} />
                   <Route path="/configuracion" element={<SettingsPage />} />

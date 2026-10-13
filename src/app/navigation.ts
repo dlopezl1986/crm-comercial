@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, CalendarDays, ListChecks, Sparkles, KanbanSquare, Building2, Users,
-  BarChart3, Package, Settings, ArrowDownUp, type LucideIcon,
+  BarChart3, Package, Settings, ArrowDownUp, Mail, type LucideIcon,
 } from 'lucide-react';
 
 export interface NavItem { path: string; label: string; icon: LucideIcon }
@@ -21,6 +21,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { path: '/leads', label: 'Leads', icon: Sparkles },
       { path: '/oportunidades', label: 'Oportunidades', icon: KanbanSquare },
+      { path: '/campanas', label: 'Campañas', icon: Mail },
     ],
   },
   {
