@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Phone, Plus, Sparkles, Tags, Trash2 } from 'lucide-react';
+import { Pencil, Phone, Plus, Sparkles, Tags, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { FilterSelect } from '@/components/ui/Select';
@@ -21,7 +21,8 @@ import { LEAD_STATUS } from '@/domain/labels';
 import { relativeDay, tsToDate, whenOf } from '@/lib/dates';
 import { matches, uniqueSorted } from '@/lib/text';
 import { num } from '@/lib/format';
-import type { Lead, LeadStatus } from '@/types/models';
+import type { Company, Lead, LeadStatus } from '@/types/models';
+import { CompanyForm } from '@/features/companies/CompanyForm';
 import { ActivityDialog } from '@/features/activities/ActivityDialog';
 import { BulkTagDialog, applyTags } from '@/features/shared/BulkTagDialog';
 import { LeadForm } from './LeadForm';
@@ -46,6 +47,7 @@ export function LeadsPage() {
   const [page, setPage] = useState(0);
   const [creating, setCreating] = useState(false);
   const [calling, setCalling] = useState<Lead | null>(null);
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [dialog, setDialog] = useState<'tags' | 'delete' | null>(null);
   const sel = useSelection();
 
@@ -113,7 +115,7 @@ export function LeadsPage() {
             {d.leads.length ? 'Prueba con otros filtros.' : 'Crea un lead o genera leads desde Empresas (selección → Crear leads).'}
           </EmptyState>
         ) : (
-          <table className="table">
+          <div className="table-wrap"><table className="table">
             <thead><tr>
               <th className="col-check"><input type="checkbox" checked={sel.selected.size === filtered.length} onChange={(e) => sel.setAll(filtered.map((l) => l.id), e.target.checked)} /></th>
               <th>Lead</th><th>Teléfono</th><th>Estado</th><th>Próximo paso</th><th>Etiquetas</th><th>Últ. actividad</th><th></th>
@@ -133,16 +135,18 @@ export function LeadsPage() {
                     <td>{l.nextStep ? <span className="inline">{l.nextStep} <WhenBadge when={whenOf(l.nextStepAt)} /></span> : <span className="muted small">—</span>}</td>
                     <td><TagList tags={l.tags} max={2} /></td>
                     <td className="muted nowrap">{l.lastActivityAt ? relativeDay(l.lastActivityAt) : ''}</td>
-                    <td><button className="btn btn--secondary btn--sm" onClick={() => setCalling(l)}><Phone size={13} /> Llamada</button></td>
+                    <td className="nowrap"><button className="btn btn--secondary btn--sm" onClick={() => setCalling(l)}><Phone size={13} /> Llamada</button>
+                      {co && <button className="icon-btn icon-btn--sm" title="Editar empresa" onClick={() => setEditingCompany(co)}><Pencil size={14} /></button>}</td>
                   </tr>
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
         <Pagination page={page} pageSize={PAGE} total={filtered.length} onPage={setPage} />
       </div>
       {creating && <LeadForm onClose={() => setCreating(false)} />}
+      {editingCompany && <CompanyForm company={editingCompany} onClose={() => setEditingCompany(null)} />}
       {calling && <ActivityDialog defaults={{ type: 'call', title: `Llamada a ${calling.title}`, leadId: calling.id, companyId: calling.companyId ?? null, contactId: calling.contactId ?? null,
         completes: calling.nextStep ? { col: 'leads', id: calling.id } : undefined }} onClose={() => setCalling(null)} />}
       {dialog === 'tags' && <BulkTagDialog count={ids.length} onClose={() => setDialog(null)} onApply={async (add, rem) => {

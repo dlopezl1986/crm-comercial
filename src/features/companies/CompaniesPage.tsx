@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, Mail, Plus, Sparkles, Tags, Trash2 } from 'lucide-react';
+import { Building2, Mail, Pencil, Plus, Sparkles, Tags, Trash2 } from 'lucide-react';
+import type { Company } from '@/types/models';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { MultiSelect, asList } from '@/components/ui/MultiSelect';
@@ -46,6 +47,7 @@ export function CompaniesPage() {
   const [sort, setSort] = usePersistentState<Sort>('companies.sort', 'name');
   const [page, setPage] = useState(0);
   const [creating, setCreating] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [dialog, setDialog] = useState<'tags' | 'delete' | 'leads' | 'mail' | null>(null);
   const sel = useSelection();
 
@@ -152,13 +154,13 @@ export function CompaniesPage() {
             {companies.length ? 'Prueba con otros filtros.' : 'Crea tu primera empresa o impórtalas desde Excel.'}
           </EmptyState>
         ) : (
-          <table className="table">
+          <div className="table-wrap"><table className="table">
             <thead>
               <tr>
                 <th className="col-check"><input type="checkbox" checked={allSelected} onChange={(e) => sel.setAll(filtered.map((c) => c.id), e.target.checked)}
                   title={`Seleccionar las ${filtered.length} filtradas`} /></th>
                 <th>Empresa</th><th>Sector</th><th>Ciudad</th><th>Teléfono</th><th>Email</th><th>Estado email</th><th>Etiquetas</th>
-                <th className="num">Cont.</th><th className="num">Opor.</th><th>Últ. actividad</th>
+                <th className="num">Cont.</th><th className="num">Opor.</th><th>Últ. actividad</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -177,16 +179,18 @@ export function CompaniesPage() {
                     <td className="num">{n?.contacts || ''}</td>
                     <td className="num">{n?.opps || ''}</td>
                     <td className="muted nowrap">{c.lastActivityAt ? relativeDay(c.lastActivityAt) : ''}</td>
+                    <td><button className="icon-btn icon-btn--sm" title="Editar empresa" onClick={() => setEditingCompany(c)}><Pencil size={14} /></button></td>
                   </tr>
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
         <Pagination page={page} pageSize={PAGE} total={filtered.length} onPage={setPage} />
       </div>
 
       {creating && <CompanyForm onClose={() => setCreating(false)} />}
+      {editingCompany && <CompanyForm company={editingCompany} onClose={() => setEditingCompany(null)} />}
       {dialog === 'mail' && <BulkEmailStatusDialog count={selectedIds.length} onClose={() => setDialog(null)} onApply={async (s, note) => {
         await setEmailStatus(orgId, selectedIds, s, note);
         toast(`Estado de email actualizado en ${num(selectedIds.length)} empresas`); sel.clear();

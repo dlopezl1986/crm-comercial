@@ -44,7 +44,7 @@ export function ServicesPage() {
         actions={<button className="btn btn--primary" onClick={() => setEditing('new')}><Plus size={16} /> Nuevo servicio</button>} />
       <div className="card card--flush">
         {!services.length ? <EmptyState icon={Package} title="Sin servicios">Crea tu catálogo.</EmptyState> : (
-          <table className="table">
+          <div className="table-wrap"><table className="table">
             <thead><tr><th></th><th>Servicio</th><th>Descripción</th><th className="num">Precio orientativo</th><th className="num">Oportunidades</th><th className="num">Ganado</th><th>Estado</th><th></th></tr></thead>
             <tbody>
               {services.map((s, i) => (
@@ -71,7 +71,7 @@ export function ServicesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
       {editing && <ServiceForm service={editing === 'new' ? undefined : editing} nextOrder={services.length} onClose={() => setEditing(null)}

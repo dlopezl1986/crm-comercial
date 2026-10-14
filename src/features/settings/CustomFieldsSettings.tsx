@@ -26,7 +26,7 @@ export function CustomFieldsSettings() {
         <button className="btn btn--primary" onClick={() => setEditing('new')}><Plus size={16} /> Nuevo campo</button>
       </div>
       <div className="card card--flush">
-        <table className="table">
+        <div className="table-wrap"><table className="table">
           <thead><tr><th>Campo</th><th>Entidad</th><th>Tipo</th><th></th></tr></thead>
           <tbody>
             {customFields.map((f) => (
@@ -41,7 +41,7 @@ export function CustomFieldsSettings() {
             ))}
             {!customFields.length && <tr><td colSpan={4} className="muted">Aún no hay campos personalizados.</td></tr>}
           </tbody>
-        </table>
+        </table></div>
       </div>
       {editing && <FieldForm field={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} onSave={async (data) => {
         if (editing === 'new') await createItem<CustomFieldDef>(orgId, 'customFields', uid, { ...data, order: customFields.length });

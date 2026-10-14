@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Timestamp } from 'firebase/firestore';
 import { AlertTriangle } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Spinner } from '@/components/ui/Spinner';
@@ -52,7 +53,12 @@ export function CompanyForm({ company, onClose }: { company?: Company; onClose: 
     } as Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'ownerId'>;
     try {
       if (company) {
-        await updateItem<Company>(orgId, 'companies', company.id, data);
+        // Email corregido en una empresa con rebote/error: vuelve a "Sin enviar" para poder recibir campañas.
+        const emailChanged = (data.email ?? '') !== (company.email ?? '');
+        const reset = emailChanged && (company.emailStatus === 'bounced' || company.emailStatus === 'error')
+          ? { emailStatus: undefined, emailStatusAt: Timestamp.now() } : {};
+        await updateItem<Company>(orgId, 'companies', company.id, { ...data, ...reset });
+        if (emailChanged && 'emailStatus' in reset) toast('Email corregido: estado vuelto a "Sin enviar"');
         toast('Empresa actualizada');
         onClose();
       } else {

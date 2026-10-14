@@ -46,7 +46,7 @@ export function OpportunitiesPage() {
         <div className="card"><EmptyState icon={KanbanSquare} title="Aún no hay oportunidades">Crea una o convierte un lead.</EmptyState></div>
       ) : view === 'board' ? <PipelineBoard items={items} /> : (
         <div className="card card--flush">
-          <table className="table">
+          <div className="table-wrap"><table className="table">
             <thead><tr><th>Oportunidad</th><th>Empresa</th><th>Estado</th><th className="num">Valor</th><th className="num">Prob.</th><th className="num">Ponderado</th><th>Cierre previsto</th><th>Próximo paso</th><th>Servicios / motivo</th></tr></thead>
             <tbody>
               {items.map((o) => (
@@ -63,7 +63,7 @@ export function OpportunitiesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
           {!items.length && <EmptyState icon={List} title="Sin resultados">Prueba con otros filtros.</EmptyState>}
         </div>
       )}

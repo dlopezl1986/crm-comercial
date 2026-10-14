@@ -45,7 +45,7 @@ export function TagsSettings() {
         <button className="btn btn--primary" onClick={() => setEditing('new')}><Plus size={16} /> Nueva etiqueta</button>
       </div>
       <div className="card card--flush">
-        <table className="table">
+        <div className="table-wrap"><table className="table">
           <thead><tr><th>Etiqueta</th><th className="num">Registros</th><th></th></tr></thead>
           <tbody>
             {d.allTags.map((name) => {
@@ -63,7 +63,7 @@ export function TagsSettings() {
             })}
             {!d.allTags.length && <tr><td colSpan={3} className="muted">Aún no hay etiquetas.</td></tr>}
           </tbody>
-        </table>
+        </table></div>
       </div>
       {editing && <TagForm initial={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} onSave={async (name, color) => {
         const prev = editing === 'new' ? undefined : editing;

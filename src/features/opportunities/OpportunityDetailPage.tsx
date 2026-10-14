@@ -21,6 +21,7 @@ import { ActivityDialog } from '@/features/activities/ActivityDialog';
 import { NextStepDialog } from '@/features/shared/NextStepDialog';
 import { CustomFieldsView } from '@/features/customFields/CustomFieldsEditor';
 import { DetailHeader, EditButton } from '@/features/shared/DetailParts';
+import { CompanyInfoCard, ContactInfoCard } from '@/features/shared/RelatedCards';
 import { OpportunityForm } from './OpportunityForm';
 import { LossDialog } from './LossDialog';
 
@@ -121,6 +122,8 @@ export function OpportunityDetailPage() {
         </div>
 
         <div className="detail-side">
+          <CompanyInfoCard companyId={o.companyId} />
+          <ContactInfoCard contactId={o.contactId} />
           <Card title="Detalles">
             <dl className="kv kv--compact">
               <dt>Servicios</dt><dd>{o.serviceIds?.length ? o.serviceIds.map((s) => data.serviceById.get(s)?.name).filter(Boolean).join(', ') : '—'}</dd>

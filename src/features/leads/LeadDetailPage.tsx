@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowRightCircle, Ban, Building2, CalendarClock, CheckCircle2, History, Phone, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowRightCircle, Ban, CalendarClock, CheckCircle2, History, Phone, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { TagList } from '@/components/ui/TagList';
 import { Badge, WhenBadge } from '@/components/ui/Badges';
@@ -14,13 +14,14 @@ import { convertLead, setNextStep } from '@/services/crm';
 import { LEAD_STATUS } from '@/domain/labels';
 import { guessType } from '@/domain/labels';
 import { formatDate, formatDateTime, whenOf } from '@/lib/dates';
-import { asUrl, fullName } from '@/lib/text';
+import { fullName } from '@/lib/text';
 import { Timeline } from '@/features/activities/Timeline';
 import { ActivityDialog } from '@/features/activities/ActivityDialog';
 import { NextStepDialog } from '@/features/shared/NextStepDialog';
 import { OpportunityForm } from '@/features/opportunities/OpportunityForm';
 import { CustomFieldsView } from '@/features/customFields/CustomFieldsEditor';
 import { DetailHeader, EditButton } from '@/features/shared/DetailParts';
+import { CompanyInfoCard, ContactInfoCard } from '@/features/shared/RelatedCards';
 import type { Lead, LeadStatus } from '@/types/models';
 import { LeadForm } from './LeadForm';
 
@@ -39,7 +40,6 @@ export function LeadDetailPage() {
   const co = lead.companyId ? d.companyById.get(lead.companyId) : undefined;
   const ct = lead.contactId ? d.contactById.get(lead.contactId) : undefined;
   const active = lead.status !== 'converted' && lead.status !== 'disqualified';
-  const tel = ct?.phone || ct?.mobile || co?.phone;
 
   const setStatus = async (status: LeadStatus, extra: Partial<Lead> = {}) => {
     await updateItem<Lead>(ctx.orgId, 'leads', lead.id, { status, ...extra });
@@ -95,19 +95,8 @@ export function LeadDetailPage() {
           </Card>
         </div>
         <div className="detail-side">
-          <Card title="Empresa" icon={Building2}>
-            {co ? (
-              <dl className="kv kv--compact">
-                <dt>Empresa</dt><dd><Link to={`/empresas/${co.id}`}>{co.name}</Link></dd>
-                <dt>Teléfono</dt><dd>{tel ? <a href={`tel:${tel}`}>{tel}</a> : '—'}</dd>
-                <dt>Email</dt><dd>{(ct?.email || co.email) ? <a href={`mailto:${ct?.email || co.email}`}>{ct?.email || co.email}</a> : '—'}</dd>
-                <dt>Web</dt><dd>{co.website ? <a href={asUrl(co.website)} target="_blank" rel="noreferrer">{co.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</a> : '—'}</dd>
-                <dt>Sector</dt><dd>{co.sector || '—'}</dd>
-                <dt>Subsector</dt><dd>{co.subsector || '—'}</dd>
-                <dt>Ciudad</dt><dd>{co.city || '—'}</dd>
-              </dl>
-            ) : <p className="muted small">Sin empresa asociada.</p>}
-          </Card>
+          <CompanyInfoCard companyId={lead.companyId} />
+          <ContactInfoCard contactId={lead.contactId} />
           <Card title="Detalles">
             <dl className="kv kv--compact">
               <dt>Fuente</dt><dd>{lead.source || '—'}</dd>

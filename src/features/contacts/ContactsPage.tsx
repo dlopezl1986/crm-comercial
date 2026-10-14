@@ -59,7 +59,7 @@ export function ContactsPage() {
             {contacts.length ? 'Prueba con otros filtros.' : 'Crea tu primer contacto.'}
           </EmptyState>
         ) : (
-          <table className="table">
+          <div className="table-wrap"><table className="table">
             <thead><tr><th>Nombre</th><th>Cargo</th><th>Empresa</th><th>Teléfono</th><th>Email</th><th>Etiquetas</th><th>Últ. actividad</th></tr></thead>
             <tbody>
               {filtered.slice(page * PAGE, page * PAGE + PAGE).map((c) => {
@@ -78,7 +78,7 @@ export function ContactsPage() {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
         <Pagination page={page} pageSize={PAGE} total={filtered.length} onPage={setPage} />
       </div>
