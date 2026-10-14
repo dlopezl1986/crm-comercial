@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Ban, CheckCircle2, ClipboardCopy, Download, Mail, Pencil, Plus, Send } from 'lucide-react';
+import { Ban, CheckCircle2, ClipboardCopy, Download, Mail, MailX, Pencil, Plus, Send } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -52,6 +52,7 @@ function CampaignDetail({ campaign: c }: { campaign: Campaign }) {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [optOutText, setOptOutText] = useState('');
+  const [bounceText, setBounceText] = useState('');
   const [busy, setBusy] = useState(false);
   const st = useMemo(() => campaignStatus(d, c), [d, c]);
   const emails = batchEmails(st.nextBatch);
@@ -66,13 +67,13 @@ function CampaignDetail({ campaign: c }: { campaign: Campaign }) {
     XLSX.writeFile(wb, `Lote_${c.name.replace(/\W+/g, '_')}_${c.sentCount + 1}.xlsx`);
   };
 
-  const optOut = async () => {
+  const mark = async (status: 'optout' | 'bounced') => {
     setBusy(true);
     try {
-      const r = await markOptOuts(orgId, d, optOutText);
-      toast(`${num(r.companies)} empresas dadas de baja`);
+      const r = await markOptOuts(orgId, d, status === 'optout' ? optOutText : bounceText, status);
+      toast(`${num(r.companies)} empresas marcadas como ${status === 'optout' ? 'baja' : 'email incorrecto'}`);
       if (r.notFound.length) toast(`No encontrados en el CRM: ${r.notFound.slice(0, 5).join(', ')}${r.notFound.length > 5 ? '…' : ''}`, 'error');
-      setOptOutText('');
+      if (status === 'optout') setOptOutText(''); else setBounceText('');
     } finally { setBusy(false); }
   };
 
@@ -82,7 +83,7 @@ function CampaignDetail({ campaign: c }: { campaign: Campaign }) {
         <div className="kpi"><div className="kpi__label">Destinatarios del segmento</div><div className="kpi__value">{num(st.eligible)}</div><div className="kpi__sub">{segmentLabel(c)}</div></div>
         <div className="kpi"><div className="kpi__label">Enviados</div><div className="kpi__value">{num(st.sent.length)}</div><div className="kpi__sub">{pct} % · último lote {c.lastBatchAt ? formatDateTime(c.lastBatchAt) : '—'}</div></div>
         <div className="kpi"><div className="kpi__label">Pendientes</div><div className="kpi__value">{num(st.pending.length)}</div><div className="kpi__sub">≈ {Math.ceil(st.pending.length / c.batchSize)} lotes de {c.batchSize}</div></div>
-        <div className="kpi"><div className="kpi__label">Bajas</div><div className="kpi__value">{num(st.optOuts)}</div><div className="kpi__sub">nunca reciben campañas</div></div>
+        <div className="kpi"><div className="kpi__label">Excluidas</div><div className="kpi__value">{num(st.optOuts)}</div><div className="kpi__sub">bajas, rebotes y errores</div></div>
       </div>
       <div className="progress"><span style={{ width: `${pct}%` }} /></div>
 
@@ -122,7 +123,12 @@ function CampaignDetail({ campaign: c }: { campaign: Campaign }) {
           <Card title="Bajas" icon={Ban}>
             <p className="muted small">Pega aquí los emails de quienes respondan BAJA (uno por línea o separados por ;). No volverán a recibir campañas.</p>
             <textarea className="textarea" rows={4} value={optOutText} onChange={(e) => setOptOutText(e.target.value)} placeholder="info@empresa.com" />
-            <button className="btn btn--secondary btn--sm" style={{ alignSelf: 'flex-start' }} disabled={busy || !optOutText.trim()} onClick={optOut}>{busy ? <Spinner size={14} /> : 'Dar de baja'}</button>
+            <button className="btn btn--secondary btn--sm" style={{ alignSelf: 'flex-start' }} disabled={busy || !optOutText.trim()} onClick={() => mark('optout')}>{busy ? <Spinner size={14} /> : 'Dar de baja'}</button>
+          </Card>
+          <Card title="Rebotes / emails incorrectos" icon={MailX}>
+            <p className="muted small">Pega las direcciones de los avisos de "no se pudo entregar" (puedes pegar el texto del aviso entero: se detectan los emails). Quedan como <strong>Email incorrecto</strong> y salen de las campañas.</p>
+            <textarea className="textarea" rows={4} value={bounceText} onChange={(e) => setBounceText(e.target.value)} placeholder="info@empresa-que-rebota.com" />
+            <button className="btn btn--secondary btn--sm" style={{ alignSelf: 'flex-start' }} disabled={busy || !bounceText.trim()} onClick={() => mark('bounced')}>{busy ? <Spinner size={14} /> : 'Marcar como incorrectos'}</button>
           </Card>
           <Card title="Flujo de Power Automate">
             <p className="muted small">El flujo <strong>"Enviar campaña"</strong> ya está creado en tu cuenta (servicios.profesionales@syscomputers.es):

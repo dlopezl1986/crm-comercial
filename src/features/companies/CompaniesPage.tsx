@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, Plus, Sparkles, Tags, Trash2 } from 'lucide-react';
+import { Building2, Mail, Plus, Sparkles, Tags, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { FilterSelect } from '@/components/ui/Select';
@@ -20,6 +20,10 @@ import { num } from '@/lib/format';
 import { relativeDay, tsToDate } from '@/lib/dates';
 import { CompanyForm } from './CompanyForm';
 import { SectorFilters } from '@/components/form/SectorFilters';
+import { EmailStatusEditor } from './EmailStatusCell';
+import { EMAIL_STATUS, EMAIL_STATUS_KEYS, emailStatusOf, type EmailStatusOrNone } from '@/domain/emailStatus';
+import { setEmailStatus } from '@/services/emailStatus';
+import { Modal } from '@/components/ui/Modal';
 import { RegroupBanner } from '@/features/settings/RegroupSectors';
 import { BulkTagDialog, applyTags } from '@/features/shared/BulkTagDialog';
 
@@ -35,10 +39,11 @@ export function CompaniesPage() {
   const [subsector, setSubsector] = usePersistentState('companies.subsector', '');
   const [city, setCity] = usePersistentState('companies.city', '');
   const [tag, setTag] = usePersistentState('companies.tag', '');
+  const [mailStatus, setMailStatus] = usePersistentState('companies.mailStatus', '');
   const [sort, setSort] = usePersistentState<Sort>('companies.sort', 'name');
   const [page, setPage] = useState(0);
   const [creating, setCreating] = useState(false);
-  const [dialog, setDialog] = useState<'tags' | 'delete' | 'leads' | null>(null);
+  const [dialog, setDialog] = useState<'tags' | 'delete' | 'leads' | 'mail' | null>(null);
   const sel = useSelection();
 
   const counts = useMemo(() => {
@@ -55,14 +60,14 @@ export function CompaniesPage() {
 
   const filtered = useMemo(() => {
     const list = companies.filter((c) =>
-      (!sector || c.sector === sector) && (!subsector || c.subsector === subsector) && (!city || c.city === city) && (!tag || c.tags?.includes(tag)) &&
+      (!sector || c.sector === sector) && (!subsector || c.subsector === subsector) && (!city || c.city === city) && (!tag || c.tags?.includes(tag)) && (!mailStatus || emailStatusOf(c) === mailStatus) &&
       matches(q, [c.name, c.cif, c.email, c.phone, c.city, c.sector, c.subsector, c.website]));
     const time = (x: unknown) => tsToDate(x as never)?.getTime() ?? 0;
     return list.sort((a, b) =>
       sort === 'recent' ? time(b.createdAt) - time(a.createdAt)
         : sort === 'activity' ? time(b.lastActivityAt) - time(a.lastActivityAt)
           : a.name.localeCompare(b.name, 'es'));
-  }, [companies, q, sector, subsector, city, tag, sort]);
+  }, [companies, q, sector, subsector, city, tag, mailStatus, sort]);
 
   const pageItems = filtered.slice(page * PAGE, page * PAGE + PAGE);
   const resetPage = <T,>(fn: (v: T) => void) => (v: T) => { fn(v); setPage(0); sel.clear(); };
@@ -104,6 +109,7 @@ export function CompaniesPage() {
         <SectorFilters companies={companies} sector={sector} subsector={subsector} onSector={resetPage(setSector)} onSubsector={resetPage(setSubsector)} />
         <FilterSelect label="Ciudad" value={city} onChange={resetPage(setCity)} options={cities.map((s) => ({ value: s, label: s }))} />
         <FilterSelect label="Etiqueta" value={tag} onChange={resetPage(setTag)} options={tags.map((s) => ({ value: s, label: s }))} />
+        <FilterSelect label="Estado email" value={mailStatus} onChange={resetPage(setMailStatus)} options={EMAIL_STATUS_KEYS.map((k) => ({ value: k, label: EMAIL_STATUS[k].label }))} />
         <select className="filter-select" value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="Ordenar">
           <option value="name">Orden: nombre</option>
           <option value="recent">Orden: más recientes</option>
@@ -116,6 +122,7 @@ export function CompaniesPage() {
           <strong>{num(sel.selected.size)} seleccionadas</strong>
           <button className="btn btn--secondary btn--sm" onClick={() => setDialog('leads')}><Sparkles size={14} /> Crear leads</button>
           <button className="btn btn--secondary btn--sm" onClick={() => setDialog('tags')}><Tags size={14} /> Etiquetas</button>
+          <button className="btn btn--secondary btn--sm" onClick={() => setDialog('mail')}><Mail size={14} /> Estado email</button>
           <button className="btn btn--secondary btn--sm danger" onClick={() => setDialog('delete')}><Trash2 size={14} /> Eliminar</button>
           <button className="btn btn--ghost btn--sm" onClick={sel.clear}>Cancelar</button>
         </div>
@@ -132,7 +139,7 @@ export function CompaniesPage() {
               <tr>
                 <th className="col-check"><input type="checkbox" checked={allSelected} onChange={(e) => sel.setAll(filtered.map((c) => c.id), e.target.checked)}
                   title={`Seleccionar las ${filtered.length} filtradas`} /></th>
-                <th>Empresa</th><th>Sector</th><th>Ciudad</th><th>Teléfono</th><th>Email</th><th>Etiquetas</th>
+                <th>Empresa</th><th>Sector</th><th>Ciudad</th><th>Teléfono</th><th>Email</th><th>Estado email</th><th>Etiquetas</th>
                 <th className="num">Cont.</th><th className="num">Opor.</th><th>Últ. actividad</th>
               </tr>
             </thead>
@@ -147,6 +154,7 @@ export function CompaniesPage() {
                     <td className="muted">{c.city}</td>
                     <td className="nowrap">{c.phone && <a href={`tel:${c.phone}`}>{c.phone}</a>}</td>
                     <td className="truncate">{c.email && <a href={`mailto:${c.email}`}>{c.email}</a>}</td>
+                    <td>{c.email && <EmailStatusEditor company={c} compact />}</td>
                     <td><TagList tags={c.tags} max={2} /></td>
                     <td className="num">{n?.contacts || ''}</td>
                     <td className="num">{n?.opps || ''}</td>
@@ -161,6 +169,10 @@ export function CompaniesPage() {
       </div>
 
       {creating && <CompanyForm onClose={() => setCreating(false)} />}
+      {dialog === 'mail' && <BulkEmailStatusDialog count={selectedIds.length} onClose={() => setDialog(null)} onApply={async (s, note) => {
+        await setEmailStatus(orgId, selectedIds, s, note);
+        toast(`Estado de email actualizado en ${num(selectedIds.length)} empresas`); sel.clear();
+      }} />}
       {dialog === 'tags' && <BulkTagDialog count={sel.selected.size} onApply={applyBulkTags} onClose={() => setDialog(null)} />}
       {dialog === 'delete' && (
         <ConfirmDialog title="Eliminar empresas" danger confirmLabel="Eliminar" onConfirm={bulkDelete} onClose={() => setDialog(null)}>
@@ -174,5 +186,26 @@ export function CompaniesPage() {
         </ConfirmDialog>
       )}
     </>
+  );
+}
+
+function BulkEmailStatusDialog({ count, onApply, onClose }: { count: number; onApply: (s: EmailStatusOrNone, note?: string) => Promise<void>; onClose: () => void }) {
+  const [status, setStatus] = useState<EmailStatusOrNone>('bounced');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  return (
+    <Modal title={`Estado del email · ${count} empresas`} onClose={onClose} width={460} footer={
+      <>
+        <button className="btn btn--secondary" onClick={onClose} disabled={busy}>Cancelar</button>
+        <button className="btn btn--primary" disabled={busy} onClick={async () => { setBusy(true); try { await onApply(status, note.trim() || undefined); onClose(); } finally { setBusy(false); } }}>Aplicar</button>
+      </>
+    }>
+      <div className="stack">
+        <div className="chips">
+          {EMAIL_STATUS_KEYS.map((k) => <button type="button" key={k} className={`chip ${status === k ? 'chip--on' : ''}`} onClick={() => setStatus(k)}>{EMAIL_STATUS[k].label}</button>)}
+        </div>
+        <label className="field"><span>Comentario (opcional, sustituye al actual)</span><input value={note} onChange={(e) => setNote(e.target.value)} /></label>
+      </div>
+    </Modal>
   );
 }

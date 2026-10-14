@@ -8,9 +8,8 @@ import { useToast } from '@/components/ui/Toast';
 import { FullScreenLoader } from '@/components/ui/Spinner';
 import { useSession } from '@/auth/AuthProvider';
 import { useData } from '@/data/DataProvider';
-import { deleteItem, createItem, updateItem } from '@/services/repository';
-import { Timestamp } from 'firebase/firestore';
-import type { Company } from '@/types/models';
+import { deleteItem, createItem } from '@/services/repository';
+import { EmailStatusEditor } from './EmailStatusCell';
 import { buildAgenda } from '@/domain/agenda';
 import { asUrl, fullName } from '@/lib/text';
 import { formatDate } from '@/lib/dates';
@@ -88,11 +87,7 @@ export function CompanyDetailPage() {
               <dt><MapPin size={13} /> Dirección</dt><dd>{[company.address, company.province].filter(Boolean).join(', ') || company.city || '—'}</dd>
               {company.rating != null && <><dt>Valoración</dt><dd>★ {company.rating}</dd></>}
               {company.source && <><dt>Origen</dt><dd>{company.source}</dd></>}
-              <dt>Emails comerciales</dt><dd className="inline">
-                {company.emailOptOut ? <span className="badge" style={{ color: 'var(--danger)', background: 'var(--danger-soft)' }}>Baja</span> : <span className="muted">Permitidos</span>}
-                <button className="link-btn small" onClick={() => updateItem<Company>(orgId, 'companies', company.id, { emailOptOut: !company.emailOptOut, emailOptOutAt: company.emailOptOut ? null : Timestamp.now() })}>
-                  {company.emailOptOut ? 'Reactivar' : 'Dar de baja'}</button>
-              </dd>
+              <dt>Estado email</dt><dd><EmailStatusEditor company={company} /></dd>
               {!!company.campaignIds?.length && <><dt>Campañas</dt><dd>{company.campaignIds.map((id) => data.campaigns.find((c) => c.id === id)?.name).filter(Boolean).join(', ')}</dd></>}
               <CustomFieldsView entity="company" value={company.custom} />
               <dt>Alta</dt><dd>{formatDate(company.createdAt)}</dd>

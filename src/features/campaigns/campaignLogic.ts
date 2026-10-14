@@ -1,8 +1,10 @@
 import { Timestamp } from 'firebase/firestore';
 import { bulkCreate, bulkUpdate, updateItem } from '@/services/repository';
+import { setEmailStatus } from '@/services/emailStatus';
 import { norm } from '@/lib/text';
 import type { DataState } from '@/data/DataProvider';
 import type { Campaign, Company } from '@/types/models';
+import { isEmailBlocked } from '@/domain/emailStatus';
 
 const EMAIL_RE = /^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]+$/;
 export const validEmail = (e?: string) => !!e && EMAIL_RE.test(e.trim());
@@ -17,7 +19,7 @@ export function segment(d: DataState, c: Segment) {
   const sectors = segmentSectorsOf(c);
   const subs = c.segmentSubsectors ?? [];
   return d.companies.filter((co) =>
-    validEmail(co.email) && !co.emailOptOut &&
+    validEmail(co.email) && !isEmailBlocked(co) &&
     (!c.segmentTags.length || c.segmentTags.some((t) => co.tags?.includes(t))) &&
     (!sectors.length || sectors.includes(co.sector ?? '')) &&
     (!subs.length || subs.includes(co.subsector ?? '')));
@@ -54,7 +56,7 @@ export function campaignStatus(d: DataState, c: Campaign): CampaignStatus {
     batchEmails.add(e);
     nextBatch.push(co);
   }
-  const optOuts = d.companies.filter((co) => co.emailOptOut).length;
+  const optOuts = d.companies.filter((co) => isEmailBlocked(co)).length;
   return { eligible: all.length, sent, pending, optOuts, nextBatch };
 }
 
@@ -68,7 +70,11 @@ export async function markBatchSent(orgId: string, uid: string, d: DataState, c:
   const emails = new Set(batch.map((co) => norm(co.email)));
   const affected = segment(d, c).filter((co) => emails.has(norm(co.email)) && !co.campaignIds?.includes(c.id));
   await bulkUpdate(orgId, 'companies', affected.map((co) => ({
-    id: co.id, data: { campaignIds: [...(co.campaignIds ?? []), c.id], lastActivityAt: now },
+    id: co.id, data: {
+      campaignIds: [...(co.campaignIds ?? []), c.id], lastActivityAt: now, emailSentAt: now, emailStatusAt: now,
+      // No se pisa un estado más informativo (respondido, rebotado…).
+      ...(!co.emailStatus || co.emailStatus === 'sent' ? { emailStatus: 'sent' } : {}),
+    },
   })), onProgress);
   const leadByCompany = new Map(d.leads.filter((l) => l.companyId && l.status !== 'converted').map((l) => [l.companyId!, l.id]));
   await bulkCreate(orgId, 'activities', uid, affected.map((co) => ({
@@ -79,12 +85,11 @@ export async function markBatchSent(orgId: string, uid: string, d: DataState, c:
   return affected.length;
 }
 
-/** Marca como baja todas las empresas y contactos con alguno de estos emails. */
-export async function markOptOuts(orgId: string, d: DataState, raw: string) {
-  const emails = new Set(raw.split(/[\s,;]+/).map((e) => norm(e)).filter(validEmail));
-  const now = Timestamp.now();
-  const companies = d.companies.filter((co) => emails.has(norm(co.email)) && !co.emailOptOut);
-  await bulkUpdate(orgId, 'companies', companies.map((co) => ({ id: co.id, data: { emailOptOut: true, emailOptOutAt: now } })));
+/** Marca con un estado (baja, rebotado…) todas las empresas con alguno de estos emails. */
+export async function markOptOuts(orgId: string, d: DataState, raw: string, status: 'optout' | 'bounced' = 'optout') {
+  const emails = new Set(raw.split(/[\s,;<>()"']+/).map((e) => norm(e)).filter(validEmail));
+  const companies = d.companies.filter((co) => emails.has(norm(co.email)) && co.emailStatus !== status && !(status === 'optout' && co.emailOptOut));
+  await setEmailStatus(orgId, companies.map((co) => co.id), status);
   const found = new Set([...d.companies, ...d.contacts].map((x) => norm(x.email)).filter((e) => emails.has(e)));
   return { requested: emails.size, companies: companies.length, notFound: [...emails].filter((e) => !found.has(e)) };
 }

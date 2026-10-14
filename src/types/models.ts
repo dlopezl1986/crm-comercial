@@ -77,7 +77,15 @@ export interface Company extends BaseDoc {
   emailOptOutAt?: Timestamp | null;
   /** Campañas de email ya enviadas a esta empresa. */
   campaignIds?: string[];
+  /** Estado del email comercial (ver domain/emailStatus.ts). */
+  emailStatus?: EmailStatus;
+  /** Comentario sobre el email (p. ej. "rebota: buzón inexistente"). */
+  emailNote?: string;
+  emailSentAt?: Timestamp | null;
+  emailStatusAt?: Timestamp | null;
 }
+
+export type EmailStatus = 'sent' | 'replied' | 'bounced' | 'error' | 'optout';
 
 export type ContactPreference = 'phone' | 'mobile' | 'email' | 'linkedin';
 

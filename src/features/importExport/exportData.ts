@@ -1,6 +1,7 @@
 import type { DataState } from '@/data/DataProvider';
 import { ACTIVITY_META, ACTIVITY_STATUS, CALL_RESULTS, LEAD_STATUS, LOSS_REASONS, STAGE_META, CONTACT_PREFERENCE } from '@/domain/labels';
 import { formatDate, formatDateTime } from '@/lib/dates';
+import { EMAIL_STATUS, emailStatusOf } from '@/domain/emailStatus';
 import { fullName } from '@/lib/text';
 
 export type ExportEntity = 'companies' | 'contacts' | 'leads' | 'opportunities' | 'activities';
@@ -17,7 +18,7 @@ export function exportRows(d: DataState, e: ExportEntity): Record<string, unknow
   switch (e) {
     case 'companies': return d.companies.map((c) => ({
       Empresa: c.name, CIF: c.cif ?? '', Sector: c.sector ?? '', Subsector: c.subsector ?? '', Ciudad: c.city ?? '', Provincia: c.province ?? '', Dirección: c.address ?? '',
-      Email: c.email ?? '', Teléfono: c.phone ?? '', Web: c.website ?? '', Etiquetas: tags(c.tags), Notas: c.notes ?? '',
+      Email: c.email ?? '', 'Estado email': EMAIL_STATUS[emailStatusOf(c)].label, 'Comentario email': c.emailNote ?? '', Teléfono: c.phone ?? '', Web: c.website ?? '', Etiquetas: tags(c.tags), Notas: c.notes ?? '',
       'Fecha de creación': formatDate(c.createdAt), 'Última actividad': c.lastActivityAt ? formatDate(c.lastActivityAt) : '',
     }));
     case 'contacts': return d.contacts.map((c) => ({
