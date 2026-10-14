@@ -335,3 +335,5 @@
 .multi__item:hover { background: var(--surface-2); }
 .multi__label { flex: 1; }
 .multi__clear { align-self: flex-start; margin-top: 4px; }
+.campaign-count { padding: 10px 12px; border-radius: var(--radius); background: var(--primary-soft); color: var(--text); font-size: 13.5px; }
+.campaign-count strong { font-size: 16px; color: var(--primary); }

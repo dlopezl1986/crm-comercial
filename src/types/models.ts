@@ -240,6 +240,8 @@ export interface Campaign extends BaseDoc {
   segmentSectors?: string[];
   /** Segmento: subsectores concretos dentro de esos sectores (vacío = todos). */
   segmentSubsectors?: string[];
+  /** No enviar a empresas que ya recibieron un email de otra campaña (por defecto sí). */
+  excludeContacted?: boolean;
   batchSize: number;
   sentCount: number;
   lastBatchAt?: Timestamp | null;

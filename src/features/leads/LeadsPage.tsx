@@ -27,6 +27,7 @@ import { BulkTagDialog, applyTags } from '@/features/shared/BulkTagDialog';
 import { LeadForm } from './LeadForm';
 import { SectorFilters } from '@/components/form/SectorFilters';
 import { asList } from '@/components/ui/MultiSelect';
+import { effectiveSector } from '@/domain/sectors';
 
 const PAGE = 50;
 type Tab = 'active' | LeadStatus | 'all';
@@ -60,8 +61,11 @@ export function LeadsPage() {
     if (tab === 'active' ? (l.status === 'converted' || l.status === 'disqualified') : tab !== 'all' && l.status !== tab) return false;
     if (tag && !l.tags?.includes(tag)) return false;
     const co = l.companyId ? d.companyById.get(l.companyId) : undefined;
-    if (sectors.length && !sectors.includes(co?.sector ?? '')) return false;
-    if (subsectors.length && !subsectors.includes(co?.subsector ?? '')) return false;
+    if (sectors.length || subsectors.length) {
+      const e = co ? effectiveSector(co) : {};
+      if (sectors.length && !sectors.includes(e.sector ?? '')) return false;
+      if (subsectors.length && !subsectors.includes(e.subsector ?? '')) return false;
+    }
     if (next) {
       const w = whenOf(l.nextStepAt);
       if (next === 'none' ? !!l.nextStep : next === 'due' ? !(w === 'overdue' || w === 'today') : w !== next) return false;

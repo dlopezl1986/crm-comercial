@@ -4,31 +4,43 @@ import { setEmailStatus } from '@/services/emailStatus';
 import { norm } from '@/lib/text';
 import type { DataState } from '@/data/DataProvider';
 import type { Campaign, Company } from '@/types/models';
-import { isEmailBlocked } from '@/domain/emailStatus';
+import { emailStatusOf, isEmailBlocked } from '@/domain/emailStatus';
+import { effectiveSector } from '@/domain/sectors';
 
 const EMAIL_RE = /^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]+$/;
 export const validEmail = (e?: string) => !!e && EMAIL_RE.test(e.trim());
 
 /** Empresas del segmento con email válido y sin baja. */
-export type Segment = Pick<Campaign, 'segmentTags' | 'segmentSector' | 'segmentSectors' | 'segmentSubsectors'>;
+export type Segment = Pick<Campaign, 'segmentTags' | 'segmentSector' | 'segmentSectors' | 'segmentSubsectors' | 'excludeContacted'> & { id?: string };
 
 /** Sectores del segmento (compatibilidad con campañas de un solo sector). */
 export const segmentSectorsOf = (c: Segment) => c.segmentSectors?.length ? c.segmentSectors : c.segmentSector ? [c.segmentSector] : [];
 
+/** ¿Ya recibió un email de OTRA campaña (o está marcada como enviada/respondida a mano)? */
+export function contactedElsewhere(co: Company, campaignId?: string) {
+  if (campaignId && co.campaignIds?.includes(campaignId)) return false;
+  return !!co.campaignIds?.length || ['sent', 'replied'].includes(emailStatusOf(co));
+}
+
+/** Empresas del segmento con email válido, sin baja/rebote y (por defecto) no contactadas por otra campaña. */
 export function segment(d: DataState, c: Segment) {
   const sectors = segmentSectorsOf(c);
   const subs = c.segmentSubsectors ?? [];
-  return d.companies.filter((co) =>
-    validEmail(co.email) && !isEmailBlocked(co) &&
-    (!c.segmentTags.length || c.segmentTags.some((t) => co.tags?.includes(t))) &&
-    (!sectors.length || sectors.includes(co.sector ?? '')) &&
-    (!subs.length || subs.includes(co.subsector ?? '')));
+  const exclude = c.excludeContacted !== false;
+  return d.companies.filter((co) => {
+    if (!validEmail(co.email) || isEmailBlocked(co)) return false;
+    if (c.segmentTags.length && !c.segmentTags.some((t) => co.tags?.includes(t))) return false;
+    if (exclude && contactedElsewhere(co, c.id)) return false;
+    if (!sectors.length && !subs.length) return true;
+    const eff = effectiveSector(co);
+    return (!sectors.length || sectors.includes(eff.sector ?? '')) && (!subs.length || subs.includes(eff.subsector ?? ''));
+  });
 }
 
 /** Descripción corta del segmento. */
 export function segmentLabel(c: Segment) {
   const parts = [c.segmentTags.join(', '), segmentSectorsOf(c).join(', '), (c.segmentSubsectors ?? []).join(', ')].filter(Boolean);
-  return parts.join(' · ') || 'Todas las empresas';
+  return (parts.join(' · ') || 'Todas las empresas') + (c.excludeContacted !== false ? ' · sin contactadas antes' : '');
 }
 
 export interface CampaignStatus {

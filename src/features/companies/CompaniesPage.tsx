@@ -20,6 +20,7 @@ import { num } from '@/lib/format';
 import { relativeDay, tsToDate } from '@/lib/dates';
 import { CompanyForm } from './CompanyForm';
 import { SectorFilters } from '@/components/form/SectorFilters';
+import { effectiveSector } from '@/domain/sectors';
 import { EmailStatusEditor } from './EmailStatusCell';
 import { EMAIL_STATUS, EMAIL_STATUS_KEYS, emailStatusOf, type EmailStatusOrNone } from '@/domain/emailStatus';
 import { setEmailStatus } from '@/services/emailStatus';
@@ -72,7 +73,7 @@ export function CompaniesPage() {
 
   const filtered = useMemo(() => {
     const list = companies.filter((c) =>
-      (!sectors.length || sectors.includes(c.sector ?? '')) && (!subsectors.length || subsectors.includes(c.subsector ?? '')) &&
+      ((!sectors.length && !subsectors.length) || ((e) => (!sectors.length || sectors.includes(e.sector ?? '')) && (!subsectors.length || subsectors.includes(e.subsector ?? '')))(effectiveSector(c))) &&
       (!citiesSel.length || citiesSel.includes(c.city ?? '')) && (!tagsSel.length || tagsSel.some((t) => c.tags?.includes(t))) &&
       (!mail.length || (!!c.email && mail.includes(emailStatusOf(c)))) &&
       matches(q, [c.name, c.cif, c.email, c.phone, c.city, c.sector, c.subsector, c.website]));

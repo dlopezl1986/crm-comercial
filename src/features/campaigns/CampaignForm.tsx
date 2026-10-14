@@ -8,8 +8,10 @@ import { useData } from '@/data/DataProvider';
 import { createItem, updateItem } from '@/services/repository';
 import { num } from '@/lib/format';
 import type { Campaign } from '@/types/models';
-import { segment, segmentSectorsOf } from './campaignLogic';
-import { SECTORS } from '@/domain/sectors';
+import { contactedElsewhere, segment, segmentSectorsOf, validEmail } from './campaignLogic';
+import { isEmailBlocked } from '@/domain/emailStatus';
+import { SECTORS, effectiveSector } from '@/domain/sectors';
+import { RegroupBanner } from '@/features/settings/RegroupSectors';
 
 const BASE = `${location.origin}${location.pathname.replace(/[^/]*$/, '')}`;
 export const DEFAULTS = {
@@ -32,10 +34,13 @@ export function CampaignForm({ campaign, onClose, onSaved }: { campaign?: Campai
   const [tags, setTags] = useState<string[]>(campaign?.segmentTags ?? []);
   const [sectors, setSectors] = useState<string[]>(campaign ? segmentSectorsOf(campaign) : []);
   const [subsectors, setSubsectors] = useState<string[]>(campaign?.segmentSubsectors ?? []);
+  const [excludeContacted, setExcludeContacted] = useState(campaign?.excludeContacted !== false);
   const [batchSize, setBatchSize] = useState(String(campaign?.batchSize ?? 200));
   const [busy, setBusy] = useState(false);
   // Empresas con email por sector/subsector, para mostrar cuántas hay en cada opción.
-  const withEmail = useMemo(() => d.companies.filter((c) => c.email && !c.emailOptOut), [d.companies]);
+  const withEmail = useMemo(() => d.companies
+    .filter((c) => validEmail(c.email) && !isEmailBlocked(c) && !(excludeContacted && contactedElsewhere(c, campaign?.id)))
+    .map((c) => ({ ...effectiveSector(c) })), [d.companies, excludeContacted, campaign?.id]);
   const sectorCounts = useMemo(() => {
     const m = new Map<string, number>();
     withEmail.forEach((c) => c.sector && m.set(c.sector, (m.get(c.sector) ?? 0) + 1));
@@ -46,12 +51,14 @@ export function CampaignForm({ campaign, onClose, onSaved }: { campaign?: Campai
     withEmail.filter((c) => sectors.includes(c.sector ?? '')).forEach((c) => c.subsector && m.set(c.subsector, (m.get(c.subsector) ?? 0) + 1));
     return [...m].sort((a, b) => b[1] - a[1]);
   }, [withEmail, sectors]);
-  const count = useMemo(() => segment(d, { segmentTags: tags, segmentSectors: sectors, segmentSubsectors: subsectors }).length, [d, tags, sectors, subsectors]);
+  const count = useMemo(() => segment(d, { id: campaign?.id, segmentTags: tags, segmentSectors: sectors, segmentSubsectors: subsectors, excludeContacted }).length,
+    [d, tags, sectors, subsectors, excludeContacted, campaign?.id]);
+  const alreadyContacted = useMemo(() => d.companies.filter((c) => validEmail(c.email) && contactedElsewhere(c, campaign?.id)).length, [d.companies, campaign?.id]);
   const toggle = (list: string[], set: (v: string[]) => void, v: string) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   const toggleSector = (s: string) => {
     toggle(sectors, setSectors, s);
     // Al quitar un sector, se quitan sus subsectores elegidos.
-    if (sectors.includes(s)) setSubsectors((xs) => xs.filter((x) => d.companies.some((c) => c.subsector === x && c.sector !== s && sectors.includes(c.sector ?? ''))));
+    if (sectors.includes(s)) setSubsectors((xs) => xs.filter((x) => d.companies.some((c) => { const e = effectiveSector(c); return e.subsector === x && e.sector !== s && sectors.includes(e.sector ?? ''); })));
   };
   const footerIncomplete = /\[(RAZÓN SOCIAL|CIF|DIRECCIÓN)\]/.test(footer);
 
@@ -59,7 +66,7 @@ export function CampaignForm({ campaign, onClose, onSaved }: { campaign?: Campai
     setBusy(true);
     const data = {
       name: name.trim(), subject: subject.trim(), linkUrl: linkUrl.trim(), imageUrl: imageUrl.trim(), footer: footer.trim(),
-      segmentTags: tags, segmentSectors: sectors, segmentSubsectors: subsectors.filter((x) => subsectorCounts.some(([s]) => s === x)), segmentSector: undefined, batchSize: Math.max(1, Math.min(500, Number(batchSize) || 200)),
+      excludeContacted, segmentTags: tags, segmentSectors: sectors, segmentSubsectors: subsectors.filter((x) => subsectorCounts.some(([s]) => s === x)), segmentSector: undefined, batchSize: Math.max(1, Math.min(500, Number(batchSize) || 200)),
     };
     try {
       if (campaign) { await updateItem<Campaign>(orgId, 'campaigns', campaign.id, data); onSaved?.(campaign.id); }
@@ -77,6 +84,7 @@ export function CampaignForm({ campaign, onClose, onSaved }: { campaign?: Campai
       </>
     }>
       <div className="stack">
+        <RegroupBanner />
         <div className="form-grid">
           <label className="field field--wide"><span>Nombre interno</span><input value={name} onChange={(e) => setName(e.target.value)} /></label>
           <label className="field field--wide"><span>Asunto del email</span><input value={subject} onChange={(e) => setSubject(e.target.value)} /></label>
@@ -106,7 +114,9 @@ export function CampaignForm({ campaign, onClose, onSaved }: { campaign?: Campai
           )}
           <label className="field"><span>Emails por lote</span><input type="number" min={1} max={500} value={batchSize} onChange={(e) => setBatchSize(e.target.value)} /></label>
         </div>
-        <p className="muted small">{num(count)} empresas con email válido y sin baja en este segmento.</p>
+        <label className="check"><input type="checkbox" checked={excludeContacted} onChange={(e) => setExcludeContacted(e.target.checked)} />
+          No enviar a empresas que ya recibieron un email de otra campaña ({num(alreadyContacted)} ya contactadas)</label>
+        <p className="campaign-count"><strong>{num(count)}</strong> empresas recibirán esta campaña (email válido, sin baja ni rebote{excludeContacted ? ', no contactadas antes' : ''}).</p>
       </div>
     </Modal>
   );

@@ -14,6 +14,7 @@ import { num } from '@/lib/format';
 import type { Campaign } from '@/types/models';
 import { batchEmails, campaignStatus, emailHtml, markBatchSent, markOptOuts, segmentLabel } from './campaignLogic';
 import { CampaignForm } from './CampaignForm';
+import { RegroupBanner } from '@/features/settings/RegroupSectors';
 
 async function copy(text: string) {
   try { await navigator.clipboard.writeText(text); return true; } catch { return false; }
@@ -30,6 +31,7 @@ export function CampaignsPage() {
     <>
       <PageHeader title="Campañas de email" subtitle="Envío por lotes desde servicios.profesionales@syscomputers.es con Power Automate"
         actions={<button className="btn btn--primary" onClick={() => setCreating(true)}><Plus size={16} /> Nueva campaña</button>} />
+      <RegroupBanner />
       {d.campaigns.length > 1 && (
         <div className="toolbar">
           <select className="filter-select filter-select--on" value={campaign?.id} onChange={(e) => setSelectedId(e.target.value)}>

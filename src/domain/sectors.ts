@@ -61,6 +61,11 @@ export function classifySector(subsector: string | undefined | null): SectorName
   return 'Otros';
 }
 
+/** Sector y subsector efectivos de una empresa, aunque aún no se haya ejecutado "Agrupar sectores". */
+export function effectiveSector(c: { sector?: string; subsector?: string }) {
+  return resolveSector(c.sector, c.subsector);
+}
+
 export const isSectorName = (v: string | undefined | null): v is SectorName => !!v && (SECTORS as readonly string[]).includes(v);
 
 /**
