@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Ban, CheckCircle2, ClipboardCopy, Download, Mail, MailX, Pencil, Plus, Send } from 'lucide-react';
+import { Ban, CheckCircle2, ClipboardCopy, Download, Mail, MailX, Pencil, Plus, Send, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -10,6 +10,7 @@ import { useSession } from '@/auth/AuthProvider';
 import { useData } from '@/data/DataProvider';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { formatDateTime } from '@/lib/dates';
+import { deleteItem } from '@/services/repository';
 import { num } from '@/lib/format';
 import type { Campaign } from '@/types/models';
 import { batchEmails, campaignStatus, emailHtml, markBatchSent, markOptOuts, segmentLabel } from './campaignLogic';
@@ -53,6 +54,7 @@ function CampaignDetail({ campaign: c }: { campaign: Campaign }) {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [optOutText, setOptOutText] = useState('');
   const [bounceText, setBounceText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -81,6 +83,11 @@ function CampaignDetail({ campaign: c }: { campaign: Campaign }) {
 
   return (
     <div className="stack">
+      <div className="campaign-head">
+        <h2>{c.name}</h2>
+        <button className="btn btn--secondary btn--sm" onClick={() => setEditing(true)}><Pencil size={14} /> Editar</button>
+        <button className="btn btn--ghost btn--sm danger" onClick={() => setRemoving(true)}><Trash2 size={14} /> Eliminar campaña</button>
+      </div>
       <div className="kpis kpis--4">
         <div className="kpi"><div className="kpi__label">Destinatarios del segmento</div><div className="kpi__value">{num(st.eligible)}</div><div className="kpi__sub">{segmentLabel(c)}</div></div>
         <div className="kpi"><div className="kpi__label">Enviados</div><div className="kpi__value">{num(st.sent.length)}</div><div className="kpi__sub">{pct} % · último lote {c.lastBatchAt ? formatDateTime(c.lastBatchAt) : '—'}</div></div>
@@ -141,6 +148,13 @@ function CampaignDetail({ campaign: c }: { campaign: Campaign }) {
       </div>
 
       {editing && <CampaignForm campaign={c} onClose={() => setEditing(false)} />}
+      {removing && (
+        <ConfirmDialog title="Eliminar campaña" danger confirmLabel="Eliminar" onClose={() => setRemoving(false)}
+          onConfirm={async () => { await deleteItem(orgId, 'campaigns', c.id); toast('Campaña eliminada'); }}>
+          ¿Eliminar <strong>{c.name}</strong>? Las {num(st.sent.length)} empresas a las que ya se envió siguen marcadas como contactadas
+          (conservan su estado y el email en el historial), así que no volverán a recibir otra campaña por error.
+        </ConfirmDialog>
+      )}
       {confirming && (
         <ConfirmDialog title="Marcar lote como enviado" confirmLabel="Marcar como enviadas" onClose={() => setConfirming(false)}
           onConfirm={async () => { const n = await markBatchSent(orgId, uid, d, c, st.nextBatch); toast(`${num(n)} empresas marcadas como enviadas`); }}>
