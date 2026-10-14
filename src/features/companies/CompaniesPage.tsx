@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Building2, Mail, Plus, Sparkles, Tags, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { SearchInput } from '@/components/ui/SearchInput';
-import { FilterSelect } from '@/components/ui/Select';
+import { MultiSelect, asList } from '@/components/ui/MultiSelect';
 import { Pagination } from '@/components/ui/Pagination';
 import { TagList } from '@/components/ui/TagList';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -15,7 +15,7 @@ import { useData } from '@/data/DataProvider';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { useSelection } from '@/hooks/useSelection';
 import { bulkCreate, bulkUpdate } from '@/services/repository';
-import { matches, uniqueSorted } from '@/lib/text';
+import { matches } from '@/lib/text';
 import { num } from '@/lib/format';
 import { relativeDay, tsToDate } from '@/lib/dates';
 import { CompanyForm } from './CompanyForm';
@@ -35,11 +35,13 @@ export function CompaniesPage() {
   const { orgId, uid } = useSession();
   const toast = useToast();
   const [q, setQ] = usePersistentState('companies.q', '');
-  const [sector, setSector] = usePersistentState('companies.sector', '');
-  const [subsector, setSubsector] = usePersistentState('companies.subsector', '');
-  const [city, setCity] = usePersistentState('companies.city', '');
-  const [tag, setTag] = usePersistentState('companies.tag', '');
-  const [mailStatus, setMailStatus] = usePersistentState('companies.mailStatus', '');
+  // Filtros de selección múltiple (lista vacía = sin filtrar).
+  const [sectorsRaw, setSectors] = usePersistentState<string[]>('companies.sectors', []);
+  const [subsectorsRaw, setSubsectors] = usePersistentState<string[]>('companies.subsectors', []);
+  const [citiesRaw, setCities] = usePersistentState<string[]>('companies.cities', []);
+  const [tagsSelRaw, setTagsSel] = usePersistentState<string[]>('companies.tagsSel', []);
+  const [mailRaw, setMail] = usePersistentState<string[]>('companies.mail', []);
+  const [sectors, subsectors, citiesSel, tagsSel, mail] = [sectorsRaw, subsectorsRaw, citiesRaw, tagsSelRaw, mailRaw].map(asList);
   const [sort, setSort] = usePersistentState<Sort>('companies.sort', 'name');
   const [page, setPage] = useState(0);
   const [creating, setCreating] = useState(false);
@@ -55,19 +57,31 @@ export function CompaniesPage() {
     return m;
   }, [contacts, opportunities, leads]);
 
-  const cities = useMemo(() => uniqueSorted(companies.map((c) => c.city)), [companies]);
-  const tags = useMemo(() => uniqueSorted(companies.flatMap((c) => c.tags ?? [])), [companies]);
+  const countBy = (values: (string | undefined)[]) => {
+    const m = new Map<string, number>();
+    values.forEach((v) => v && m.set(v, (m.get(v) ?? 0) + 1));
+    return [...m].sort((a, b) => a[0].localeCompare(b[0], 'es')).map(([value, count]) => ({ value, label: value, count }));
+  };
+  const cityOptions = useMemo(() => countBy(companies.map((c) => c.city)), [companies]);
+  const tagOptions = useMemo(() => countBy(companies.flatMap((c) => c.tags ?? [])), [companies]);
+  const mailOptions = useMemo(() => {
+    const m = new Map<string, number>();
+    companies.forEach((c) => c.email && m.set(emailStatusOf(c), (m.get(emailStatusOf(c)) ?? 0) + 1));
+    return EMAIL_STATUS_KEYS.map((k) => ({ value: k, label: EMAIL_STATUS[k].label, count: m.get(k) ?? 0 }));
+  }, [companies]);
 
   const filtered = useMemo(() => {
     const list = companies.filter((c) =>
-      (!sector || c.sector === sector) && (!subsector || c.subsector === subsector) && (!city || c.city === city) && (!tag || c.tags?.includes(tag)) && (!mailStatus || emailStatusOf(c) === mailStatus) &&
+      (!sectors.length || sectors.includes(c.sector ?? '')) && (!subsectors.length || subsectors.includes(c.subsector ?? '')) &&
+      (!citiesSel.length || citiesSel.includes(c.city ?? '')) && (!tagsSel.length || tagsSel.some((t) => c.tags?.includes(t))) &&
+      (!mail.length || (!!c.email && mail.includes(emailStatusOf(c)))) &&
       matches(q, [c.name, c.cif, c.email, c.phone, c.city, c.sector, c.subsector, c.website]));
     const time = (x: unknown) => tsToDate(x as never)?.getTime() ?? 0;
     return list.sort((a, b) =>
       sort === 'recent' ? time(b.createdAt) - time(a.createdAt)
         : sort === 'activity' ? time(b.lastActivityAt) - time(a.lastActivityAt)
           : a.name.localeCompare(b.name, 'es'));
-  }, [companies, q, sector, subsector, city, tag, mailStatus, sort]);
+  }, [companies, q, sectorsRaw, subsectorsRaw, citiesRaw, tagsSelRaw, mailRaw, sort]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pageItems = filtered.slice(page * PAGE, page * PAGE + PAGE);
   const resetPage = <T,>(fn: (v: T) => void) => (v: T) => { fn(v); setPage(0); sel.clear(); };
@@ -100,16 +114,19 @@ export function CompaniesPage() {
 
   return (
     <>
-      <PageHeader title="Empresas" subtitle={`${num(companies.length)} empresas`}
+      <PageHeader title="Empresas" subtitle={filtered.length === companies.length ? `${num(companies.length)} empresas` : `${num(filtered.length)} de ${num(companies.length)} empresas`}
         actions={<button className="btn btn--primary" onClick={() => setCreating(true)}><Plus size={16} /> Nueva empresa</button>} />
 
       <RegroupBanner />
       <div className="toolbar">
         <SearchInput value={q} onChange={resetPage(setQ)} placeholder="Buscar por nombre, CIF, email, teléfono…" />
-        <SectorFilters companies={companies} sector={sector} subsector={subsector} onSector={resetPage(setSector)} onSubsector={resetPage(setSubsector)} />
-        <FilterSelect label="Ciudad" value={city} onChange={resetPage(setCity)} options={cities.map((s) => ({ value: s, label: s }))} />
-        <FilterSelect label="Etiqueta" value={tag} onChange={resetPage(setTag)} options={tags.map((s) => ({ value: s, label: s }))} />
-        <FilterSelect label="Estado email" value={mailStatus} onChange={resetPage(setMailStatus)} options={EMAIL_STATUS_KEYS.map((k) => ({ value: k, label: EMAIL_STATUS[k].label }))} />
+        <SectorFilters companies={companies} sectors={sectors} subsectors={subsectors} onSectors={resetPage(setSectors)} onSubsectors={resetPage(setSubsectors)} />
+        <MultiSelect label="Ciudad" values={citiesSel} onChange={resetPage(setCities)} options={cityOptions} />
+        <MultiSelect label="Etiqueta" values={tagsSel} onChange={resetPage(setTagsSel)} options={tagOptions} />
+        <MultiSelect label="Estado email" values={mail} onChange={resetPage(setMail)} options={mailOptions} />
+        {(sectors.length + subsectors.length + citiesSel.length + tagsSel.length + mail.length > 0) && (
+          <button className="btn btn--ghost btn--sm" onClick={() => { [setSectors, setSubsectors, setCities, setTagsSel, setMail].forEach((f) => f([])); setPage(0); sel.clear(); }}>Quitar filtros</button>
+        )}
         <select className="filter-select" value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="Ordenar">
           <option value="name">Orden: nombre</option>
           <option value="recent">Orden: más recientes</option>

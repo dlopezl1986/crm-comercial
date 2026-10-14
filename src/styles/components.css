@@ -326,3 +326,12 @@
 .email-status__note:focus { border: 1px solid var(--primary); background: var(--surface); color: var(--text); }
 .email-status--compact .email-status__note::placeholder { color: transparent; }
 .email-status--compact:hover .email-status__note::placeholder { color: var(--text-3); }
+.multi { position: relative; }
+.multi__btn { display: inline-flex; align-items: center; gap: 6px; max-width: 230px; padding-right: 10px; }
+.multi__btn svg { flex-shrink: 0; }
+.multi__menu { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; min-width: 260px; max-width: 360px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 6px; display: flex; flex-direction: column; }
+.multi__list { max-height: 300px; overflow-y: auto; }
+.multi__item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; }
+.multi__item:hover { background: var(--surface-2); }
+.multi__label { flex: 1; }
+.multi__clear { align-self: flex-start; margin-top: 4px; }

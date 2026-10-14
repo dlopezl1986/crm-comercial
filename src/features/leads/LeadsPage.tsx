@@ -26,6 +26,7 @@ import { ActivityDialog } from '@/features/activities/ActivityDialog';
 import { BulkTagDialog, applyTags } from '@/features/shared/BulkTagDialog';
 import { LeadForm } from './LeadForm';
 import { SectorFilters } from '@/components/form/SectorFilters';
+import { asList } from '@/components/ui/MultiSelect';
 
 const PAGE = 50;
 type Tab = 'active' | LeadStatus | 'all';
@@ -37,8 +38,9 @@ export function LeadsPage() {
   const [tab, setTab] = usePersistentState<Tab>('leads.tab', 'active');
   const [q, setQ] = usePersistentState('leads.q', '');
   const [tag, setTag] = usePersistentState('leads.tag', '');
-  const [sector, setSector] = usePersistentState('leads.sector', '');
-  const [subsector, setSubsector] = usePersistentState('leads.subsector', '');
+  const [sectorsRaw, setSectors] = usePersistentState<string[]>('leads.sectors', []);
+  const [subsectorsRaw, setSubsectors] = usePersistentState<string[]>('leads.subsectors', []);
+  const sectors = asList(sectorsRaw), subsectors = asList(subsectorsRaw);
   const [next, setNext] = usePersistentState('leads.next', '');
   const [page, setPage] = useState(0);
   const [creating, setCreating] = useState(false);
@@ -58,8 +60,8 @@ export function LeadsPage() {
     if (tab === 'active' ? (l.status === 'converted' || l.status === 'disqualified') : tab !== 'all' && l.status !== tab) return false;
     if (tag && !l.tags?.includes(tag)) return false;
     const co = l.companyId ? d.companyById.get(l.companyId) : undefined;
-    if (sector && co?.sector !== sector) return false;
-    if (subsector && co?.subsector !== subsector) return false;
+    if (sectors.length && !sectors.includes(co?.sector ?? '')) return false;
+    if (subsectors.length && !subsectors.includes(co?.subsector ?? '')) return false;
     if (next) {
       const w = whenOf(l.nextStepAt);
       if (next === 'none' ? !!l.nextStep : next === 'due' ? !(w === 'overdue' || w === 'today') : w !== next) return false;
@@ -70,7 +72,7 @@ export function LeadsPage() {
     const ta = tsToDate(a.nextStepAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
     const tb = tsToDate(b.nextStepAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
     return ta - tb || a.title.localeCompare(b.title, 'es');
-  }), [d.leads, d.companyById, tab, q, tag, sector, subsector, next]);
+  }), [d.leads, d.companyById, tab, q, tag, sectorsRaw, subsectorsRaw, next]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reset = <T,>(fn: (v: T) => void) => (v: T) => { fn(v); setPage(0); sel.clear(); };
   const ids = [...sel.selected];
@@ -88,7 +90,7 @@ export function LeadsPage() {
       <div className="toolbar">
         <SearchInput value={q} onChange={reset(setQ)} placeholder="Buscar lead, empresa, teléfono, ciudad…" />
         <FilterSelect label="Etiqueta" value={tag} onChange={reset(setTag)} options={tags.map((t) => ({ value: t, label: t }))} />
-        <SectorFilters companies={leadCompanies} sector={sector} subsector={subsector} onSector={reset(setSector)} onSubsector={reset(setSubsector)} />
+        <SectorFilters companies={leadCompanies} sectors={sectors} subsectors={subsectors} onSectors={reset(setSectors)} onSubsectors={reset(setSubsectors)} />
         <FilterSelect label="Próximo paso" value={next} onChange={reset(setNext)} options={[
           { value: 'due', label: 'Hoy o atrasado' }, { value: 'tomorrow', label: 'Mañana' }, { value: 'none', label: 'Sin próximo paso' },
         ]} />
