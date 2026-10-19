@@ -85,7 +85,7 @@ export interface Company extends BaseDoc {
   emailStatusAt?: Timestamp | null;
 }
 
-export type EmailStatus = 'sent' | 'replied' | 'bounced' | 'error' | 'optout';
+export type EmailStatus = 'sent' | 'delivered' | 'replied' | 'bounced' | 'error' | 'optout';
 
 export type ContactPreference = 'phone' | 'mobile' | 'email' | 'linkedin';
 

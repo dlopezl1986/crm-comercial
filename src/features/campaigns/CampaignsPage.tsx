@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Ban, CheckCircle2, ClipboardCopy, Download, Mail, MailX, Pencil, Plus, Send, Trash2 } from 'lucide-react';
+import { Ban, CheckCircle2, ClipboardCopy, Download, Inbox, Mail, MailX, Pencil, Plus, Send, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -15,6 +15,8 @@ import { num } from '@/lib/format';
 import type { Campaign } from '@/types/models';
 import { batchEmails, campaignStatus, emailHtml, markBatchSent, markOptOuts, segmentLabel } from './campaignLogic';
 import { CampaignForm } from './CampaignForm';
+import { ResponsesDialog } from './ResponsesDialog';
+import { CampaignReport } from './CampaignReport';
 import { RegroupBanner } from '@/features/settings/RegroupSectors';
 
 async function copy(text: string) {
@@ -55,6 +57,7 @@ function CampaignDetail({ campaign: c }: { campaign: Campaign }) {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [optOutText, setOptOutText] = useState('');
   const [bounceText, setBounceText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -95,6 +98,7 @@ function CampaignDetail({ campaign: c }: { campaign: Campaign }) {
         <div className="kpi"><div className="kpi__label">Excluidas</div><div className="kpi__value">{num(st.optOuts)}</div><div className="kpi__sub">bajas, rebotes y errores</div></div>
       </div>
       <div className="progress"><span style={{ width: `${pct}%` }} /></div>
+      <CampaignReport campaign={c} />
 
       <div className="detail-grid">
         <div className="detail-main">
@@ -135,6 +139,10 @@ function CampaignDetail({ campaign: c }: { campaign: Campaign }) {
             <textarea className="textarea" rows={4} value={optOutText} onChange={(e) => setOptOutText(e.target.value)} placeholder="info@empresa.com" />
             <button className="btn btn--secondary btn--sm" style={{ alignSelf: 'flex-start' }} disabled={busy || !optOutText.trim()} onClick={() => mark('optout')}>{busy ? <Spinner size={14} /> : 'Dar de baja'}</button>
           </Card>
+          <Card title="Procesar respuestas del buzón" icon={Inbox}>
+            <p className="muted small">Sube el Excel que rellena el flujo <strong>"Registrar respuestas"</strong>: clasifica rebotes, bajas, respuestas automáticas y respuestas, y actualiza cada empresa.</p>
+            <button className="btn btn--primary btn--sm" style={{ alignSelf: 'flex-start' }} onClick={() => setProcessing(true)}><Inbox size={14} /> Procesar respuestas</button>
+          </Card>
           <Card title="Rebotes / emails incorrectos" icon={MailX}>
             <p className="muted small">Pega las direcciones de los avisos de "no se pudo entregar" (puedes pegar el texto del aviso entero: se detectan los emails). Quedan como <strong>Email incorrecto</strong> y salen de las campañas.</p>
             <textarea className="textarea" rows={4} value={bounceText} onChange={(e) => setBounceText(e.target.value)} placeholder="info@empresa-que-rebota.com" />
@@ -149,6 +157,7 @@ function CampaignDetail({ campaign: c }: { campaign: Campaign }) {
       </div>
 
       {editing && <CampaignForm campaign={c} onClose={() => setEditing(false)} />}
+      {processing && <ResponsesDialog onClose={() => setProcessing(false)} />}
       {removing && (
         <ConfirmDialog title="Eliminar campaña" danger confirmLabel="Eliminar" onClose={() => setRemoving(false)}
           onConfirm={async () => { await deleteItem(orgId, 'campaigns', c.id); toast('Campaña eliminada'); }}>

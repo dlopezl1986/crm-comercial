@@ -4,7 +4,7 @@ import { setEmailStatus } from '@/services/emailStatus';
 import { norm } from '@/lib/text';
 import type { DataState } from '@/data/DataProvider';
 import type { Campaign, Company } from '@/types/models';
-import { emailStatusOf, isEmailBlocked } from '@/domain/emailStatus';
+import { CONTACTED_STATUSES, emailStatusOf, isEmailBlocked } from '@/domain/emailStatus';
 import { effectiveSector } from '@/domain/sectors';
 
 const EMAIL_RE = /^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]+$/;
@@ -19,7 +19,7 @@ export const segmentSectorsOf = (c: Segment) => c.segmentSectors?.length ? c.seg
 /** ¿Ya recibió un email de OTRA campaña (o está marcada como enviada/respondida a mano)? */
 export function contactedElsewhere(co: Company, campaignId?: string) {
   if (campaignId && co.campaignIds?.includes(campaignId)) return false;
-  return !!co.campaignIds?.length || ['sent', 'replied'].includes(emailStatusOf(co));
+  return !!co.campaignIds?.length || CONTACTED_STATUSES.includes(emailStatusOf(co));
 }
 
 /** Empresas del segmento con email válido, sin baja/rebote y (por defecto) no contactadas por otra campaña. */
