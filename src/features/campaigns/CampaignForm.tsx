@@ -8,8 +8,8 @@ import { useData } from '@/data/DataProvider';
 import { createItem, updateItem } from '@/services/repository';
 import { num } from '@/lib/format';
 import type { Campaign } from '@/types/models';
-import { contactedElsewhere, segment, segmentSectorsOf, validEmail } from './campaignLogic';
-import { isEmailBlocked } from '@/domain/emailStatus';
+import { emailIndex, segment, segmentSectorsOf, validEmail } from './campaignLogic';
+import { norm } from '@/lib/text';
 import { SECTORS, effectiveSector } from '@/domain/sectors';
 import { RegroupBanner } from '@/features/settings/RegroupSectors';
 
@@ -34,13 +34,12 @@ export function CampaignForm({ campaign, onClose, onSaved }: { campaign?: Campai
   const [tags, setTags] = useState<string[]>(campaign?.segmentTags ?? []);
   const [sectors, setSectors] = useState<string[]>(campaign ? segmentSectorsOf(campaign) : []);
   const [subsectors, setSubsectors] = useState<string[]>(campaign?.segmentSubsectors ?? []);
-  const [excludeContacted, setExcludeContacted] = useState(campaign?.excludeContacted !== false);
   const [batchSize, setBatchSize] = useState(String(campaign?.batchSize ?? 200));
   const [busy, setBusy] = useState(false);
   // Empresas con email por sector/subsector, para mostrar cuántas hay en cada opción.
   const withEmail = useMemo(() => d.companies
-    .filter((c) => validEmail(c.email) && !isEmailBlocked(c) && !(excludeContacted && contactedElsewhere(c, campaign?.id)))
-    .map((c) => ({ ...effectiveSector(c) })), [d.companies, excludeContacted, campaign?.id]);
+    .filter((c) => { if (!validEmail(c.email)) return false; const i = emailIndex(d.companies).get(norm(c.email).trim()); return !i?.blocked && !i?.contacted; })
+    .map((c) => ({ ...effectiveSector(c) })), [d.companies]);
   const sectorCounts = useMemo(() => {
     const m = new Map<string, number>();
     withEmail.forEach((c) => c.sector && m.set(c.sector, (m.get(c.sector) ?? 0) + 1));
@@ -51,9 +50,9 @@ export function CampaignForm({ campaign, onClose, onSaved }: { campaign?: Campai
     withEmail.filter((c) => sectors.includes(c.sector ?? '')).forEach((c) => c.subsector && m.set(c.subsector, (m.get(c.subsector) ?? 0) + 1));
     return [...m].sort((a, b) => b[1] - a[1]);
   }, [withEmail, sectors]);
-  const count = useMemo(() => segment(d, { id: campaign?.id, segmentTags: tags, segmentSectors: sectors, segmentSubsectors: subsectors, excludeContacted }).length,
-    [d, tags, sectors, subsectors, excludeContacted, campaign?.id]);
-  const alreadyContacted = useMemo(() => d.companies.filter((c) => validEmail(c.email) && contactedElsewhere(c, campaign?.id)).length, [d.companies, campaign?.id]);
+  const count = useMemo(() => segment(d, { id: campaign?.id, segmentTags: tags, segmentSectors: sectors, segmentSubsectors: subsectors }).length,
+    [d, tags, sectors, subsectors, campaign?.id]);
+  const alreadyContacted = useMemo(() => [...emailIndex(d.companies).values()].filter((i) => i.contacted || i.blocked).length, [d.companies]);
   const toggle = (list: string[], set: (v: string[]) => void, v: string) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   const toggleSector = (s: string) => {
     toggle(sectors, setSectors, s);
@@ -66,7 +65,7 @@ export function CampaignForm({ campaign, onClose, onSaved }: { campaign?: Campai
     setBusy(true);
     const data = {
       name: name.trim(), subject: subject.trim(), linkUrl: linkUrl.trim(), imageUrl: imageUrl.trim(), footer: footer.trim(),
-      excludeContacted, segmentTags: tags, segmentSectors: sectors, segmentSubsectors: subsectors.filter((x) => subsectorCounts.some(([s]) => s === x)), segmentSector: undefined, batchSize: Math.max(1, Math.min(1000, Number(batchSize) || 200)),
+      excludeContacted: true, segmentTags: tags, segmentSectors: sectors, segmentSubsectors: subsectors.filter((x) => subsectorCounts.some(([s]) => s === x)), segmentSector: undefined, batchSize: Math.max(1, Math.min(1000, Number(batchSize) || 200)),
     };
     try {
       if (campaign) { await updateItem<Campaign>(orgId, 'campaigns', campaign.id, data); onSaved?.(campaign.id); }
@@ -114,9 +113,8 @@ export function CampaignForm({ campaign, onClose, onSaved }: { campaign?: Campai
           )}
           <label className="field"><span>Emails por lote (se puede cambiar en cada envío)</span><input type="number" min={1} max={1000} value={batchSize} onChange={(e) => setBatchSize(e.target.value)} /></label>
         </div>
-        <label className="check"><input type="checkbox" checked={excludeContacted} onChange={(e) => setExcludeContacted(e.target.checked)} />
-          No enviar a empresas que ya recibieron un email de otra campaña ({num(alreadyContacted)} ya contactadas)</label>
-        <p className="campaign-count"><strong>{num(count)}</strong> empresas recibirán esta campaña (email válido, sin baja ni rebote{excludeContacted ? ', no contactadas antes' : ''}).</p>
+        <p className="muted small">Nunca se repite: se excluyen automáticamente las {num(alreadyContacted)} direcciones que ya recibieron un email, rebotaron o pidieron la baja (también si están duplicadas en otra ficha).</p>
+        <p className="campaign-count"><strong>{num(count)}</strong> empresas recibirán esta campaña (email válido, sin baja ni rebote, no contactadas antes).</p>
       </div>
     </Modal>
   );

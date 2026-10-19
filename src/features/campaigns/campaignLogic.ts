@@ -22,15 +22,43 @@ export function contactedElsewhere(co: Company, campaignId?: string) {
   return !!co.campaignIds?.length || CONTACTED_STATUSES.includes(emailStatusOf(co));
 }
 
-/** Empresas del segmento con email válido, sin baja/rebote y (por defecto) no contactadas por otra campaña. */
+/**
+ * Índice por dirección de email (no por ficha): si una dirección ya recibió un email, rebotó o
+ * pidió la baja en CUALQUIER empresa, todas las fichas con esa dirección quedan excluidas.
+ * Así los duplicados de una misma empresa no vuelven a recibir campañas.
+ */
+interface EmailInfo { contacted: boolean; blocked: boolean; campaigns: Set<string> }
+const indexCache = new WeakMap<Company[], Map<string, EmailInfo>>();
+export function emailIndex(companies: Company[]) {
+  let idx = indexCache.get(companies);
+  if (idx) return idx;
+  idx = new Map();
+  for (const co of companies) {
+    const e = norm(co.email).trim();
+    if (!e) continue;
+    const info = idx.get(e) ?? { contacted: false, blocked: false, campaigns: new Set<string>() };
+    if (contactedElsewhere(co)) info.contacted = true;
+    if (isEmailBlocked(co)) info.blocked = true;
+    co.campaignIds?.forEach((id) => info.campaigns.add(id));
+    idx.set(e, info);
+  }
+  indexCache.set(companies, idx);
+  return idx;
+}
+
+/** Empresas del segmento: email válido, sin baja/rebote y nunca contactadas (salvo las enviadas por esta campaña). */
 export function segment(d: DataState, c: Segment) {
   const sectors = segmentSectorsOf(c);
   const subs = c.segmentSubsectors ?? [];
-  const exclude = c.excludeContacted !== false;
+  const idx = emailIndex(d.companies);
   return d.companies.filter((co) => {
-    if (!validEmail(co.email) || isEmailBlocked(co)) return false;
+    if (!validEmail(co.email)) return false;
+    const sentHere = !!c.id && !!co.campaignIds?.includes(c.id);
+    if (!sentHere) {
+      const info = idx.get(norm(co.email).trim());
+      if (info?.blocked || info?.contacted || isEmailBlocked(co)) return false;
+    }
     if (c.segmentTags.length && !c.segmentTags.some((t) => co.tags?.includes(t))) return false;
-    if (exclude && contactedElsewhere(co, c.id)) return false;
     if (!sectors.length && !subs.length) return true;
     const eff = effectiveSector(co);
     return (!sectors.length || sectors.includes(eff.sector ?? '')) && (!subs.length || subs.includes(eff.subsector ?? ''));
@@ -40,7 +68,7 @@ export function segment(d: DataState, c: Segment) {
 /** Descripción corta del segmento. */
 export function segmentLabel(c: Segment) {
   const parts = [c.segmentTags.join(', '), segmentSectorsOf(c).join(', '), (c.segmentSubsectors ?? []).join(', ')].filter(Boolean);
-  return (parts.join(' · ') || 'Todas las empresas') + (c.excludeContacted !== false ? ' · sin contactadas antes' : '');
+  return (parts.join(' · ') || 'Todas las empresas') + ' · sin contactadas antes';
 }
 
 export interface CampaignStatus {
@@ -68,7 +96,7 @@ export function campaignStatus(d: DataState, c: Campaign): CampaignStatus {
     batchEmails.add(e);
     nextBatch.push(co);
   }
-  const optOuts = d.companies.filter((co) => isEmailBlocked(co)).length;
+  const optOuts = d.companies.filter((co) => validEmail(co.email) && emailIndex(d.companies).get(norm(co.email).trim())?.blocked).length;
   return { eligible: all.length, sent, pending, optOuts, nextBatch };
 }
 
