@@ -113,7 +113,8 @@ export function emailHtml(c: Pick<Campaign, 'linkUrl' | 'imageUrl' | 'footer' | 
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;">
 <tr><td align="center" style="padding:16px 8px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;font-family:Arial,Helvetica,sans-serif;">
-<tr><td><a href="${esc(c.linkUrl)}" target="_blank"><img src="${esc(c.imageUrl)}" width="600" alt="${esc(c.subject)} – Quiero más información" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></a></td></tr>
+<tr><td style="padding:0 0 6px;font-size:10px;line-height:14px;color:#9ca3af;">Publicidad · Syscomputers</td></tr>
+<tr><td><a href="${esc(c.linkUrl)}" target="_blank"><img src="${esc(c.imageUrl)}" width="600" alt="Digitaliza tu documentación de transporte – Quiero más información" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></a></td></tr>
 <tr><td align="center" style="padding:20px 0 8px;"><a href="${esc(c.linkUrl)}" target="_blank" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:12px 28px;border-radius:6px;">Quiero más información</a></td></tr>
 <tr><td style="padding:16px 0 0;font-size:11px;line-height:16px;color:#6b7280;border-top:1px solid #e5e7eb;">${footer}</td></tr>
 </table></td></tr></table>`.replace(/\n/g, '');

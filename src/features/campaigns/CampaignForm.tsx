@@ -15,7 +15,7 @@ import { RegroupBanner } from '@/features/settings/RegroupSectors';
 
 const BASE = `${location.origin}${location.pathname.replace(/[^/]*$/, '')}`;
 export const DEFAULTS = {
-  subject: 'Publicidad · Digitaliza tu documentación de transporte en 2 días',
+  subject: 'eCMR, DeCA y factura electrónica: listo en 2 días',
   linkUrl: 'https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=8l5HV7BFYkyJROT-MXvVJ5eaCAWM0CdHpLxifndLx8RUOUNPVUlXWEFBT1ZYV1I3MFRVRkZKQ1NWQi4u',
   imageUrl: `${BASE}campanas/digitaliza-transporte.jpg`,
   footer: 'Comunicación comercial enviada por [RAZÓN SOCIAL], [CIF], [DIRECCIÓN] — servicios.profesionales@syscomputers.es.\n'

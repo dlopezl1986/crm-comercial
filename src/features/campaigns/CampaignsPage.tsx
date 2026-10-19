@@ -14,7 +14,7 @@ import { deleteItem, updateItem } from '@/services/repository';
 import { num } from '@/lib/format';
 import type { Campaign } from '@/types/models';
 import { batchEmails, campaignStatus, emailHtml, markBatchSent, markOptOuts, segmentLabel } from './campaignLogic';
-import { CampaignForm } from './CampaignForm';
+import { CampaignForm, DEFAULTS } from './CampaignForm';
 import { ResponsesDialog } from './ResponsesDialog';
 import { CampaignReport } from './CampaignReport';
 import { RegroupBanner } from '@/features/settings/RegroupSectors';
@@ -98,6 +98,15 @@ function CampaignDetail({ campaign: c }: { campaign: Campaign }) {
         <div className="kpi"><div className="kpi__label">Excluidas</div><div className="kpi__value">{num(st.optOuts)}</div><div className="kpi__sub">bajas, rebotes y errores</div></div>
       </div>
       <div className="progress"><span style={{ width: `${pct}%` }} /></div>
+      {/^publicidad/i.test(c.subject) && (
+        <div className="alert alert--warn">
+          El asunto empieza por "Publicidad". La mención legal ya va al inicio del cuerpo del email, así que puedes usar un asunto más atractivo.
+          <button className="btn btn--primary btn--sm" style={{ marginLeft: 'auto' }}
+            onClick={async () => { await updateItem<Campaign>(orgId, 'campaigns', c.id, { subject: DEFAULTS.subject }); toast('Asunto actualizado'); }}>
+            Usar "{DEFAULTS.subject}"
+          </button>
+        </div>
+      )}
       <CampaignReport campaign={c} />
 
       <div className="detail-grid">
