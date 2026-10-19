@@ -66,7 +66,7 @@ export function CampaignForm({ campaign, onClose, onSaved }: { campaign?: Campai
     setBusy(true);
     const data = {
       name: name.trim(), subject: subject.trim(), linkUrl: linkUrl.trim(), imageUrl: imageUrl.trim(), footer: footer.trim(),
-      excludeContacted, segmentTags: tags, segmentSectors: sectors, segmentSubsectors: subsectors.filter((x) => subsectorCounts.some(([s]) => s === x)), segmentSector: undefined, batchSize: Math.max(1, Math.min(500, Number(batchSize) || 200)),
+      excludeContacted, segmentTags: tags, segmentSectors: sectors, segmentSubsectors: subsectors.filter((x) => subsectorCounts.some(([s]) => s === x)), segmentSector: undefined, batchSize: Math.max(1, Math.min(1000, Number(batchSize) || 200)),
     };
     try {
       if (campaign) { await updateItem<Campaign>(orgId, 'campaigns', campaign.id, data); onSaved?.(campaign.id); }
@@ -112,7 +112,7 @@ export function CampaignForm({ campaign, onClose, onSaved }: { campaign?: Campai
               </div>
             </div>
           )}
-          <label className="field"><span>Emails por lote</span><input type="number" min={1} max={500} value={batchSize} onChange={(e) => setBatchSize(e.target.value)} /></label>
+          <label className="field"><span>Emails por lote (se puede cambiar en cada envío)</span><input type="number" min={1} max={1000} value={batchSize} onChange={(e) => setBatchSize(e.target.value)} /></label>
         </div>
         <label className="check"><input type="checkbox" checked={excludeContacted} onChange={(e) => setExcludeContacted(e.target.checked)} />
           No enviar a empresas que ya recibieron un email de otra campaña ({num(alreadyContacted)} ya contactadas)</label>

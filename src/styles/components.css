@@ -343,3 +343,6 @@
 .campaign-count strong { font-size: 16px; color: var(--primary); }
 .campaign-head { display: flex; align-items: center; gap: 8px; }
 .campaign-head h2 { font-size: 17px; margin-right: auto; }
+.batch-size { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 10px 12px; border-radius: var(--radius); background: var(--surface-2); }
+.batch-size .chip { height: 28px; padding: 0 10px; }
+.batch-size__input { width: 80px; height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; }

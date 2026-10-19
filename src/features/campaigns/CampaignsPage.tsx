@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Ban, CheckCircle2, ClipboardCopy, Download, Mail, MailX, Pencil, Plus, Send, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
@@ -10,7 +10,7 @@ import { useSession } from '@/auth/AuthProvider';
 import { useData } from '@/data/DataProvider';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { formatDateTime } from '@/lib/dates';
-import { deleteItem } from '@/services/repository';
+import { deleteItem, updateItem } from '@/services/repository';
 import { num } from '@/lib/format';
 import type { Campaign } from '@/types/models';
 import { batchEmails, campaignStatus, emailHtml, markBatchSent, markOptOuts, segmentLabel } from './campaignLogic';
@@ -99,6 +99,7 @@ function CampaignDetail({ campaign: c }: { campaign: Campaign }) {
       <div className="detail-grid">
         <div className="detail-main">
           <Card title={`Siguiente lote · ${num(emails.length)} emails`} icon={Send} subtitle={st.nextBatch.length !== emails.length ? `${num(st.nextBatch.length)} empresas (algunas comparten email)` : undefined}>
+            {st.pending.length > 0 && <BatchSizeControl campaign={c} />}
             {emails.length === 0 ? <p className="muted">No quedan destinatarios pendientes en esta campaña.</p> : (
               <>
                 <ol className="steps">
@@ -161,6 +162,35 @@ function CampaignDetail({ campaign: c }: { campaign: Campaign }) {
           ¿Ya has enviado el lote con Power Automate? Se registrará un email en el historial de {num(st.nextBatch.length)} empresas y no volverán a salir en esta campaña.
         </ConfirmDialog>
       )}
+    </div>
+  );
+}
+
+export const MAX_BATCH = 1000;
+const PRESETS = [25, 50, 100, 200, 300, 500];
+
+/** Tamaño del siguiente lote: se puede cambiar antes de cada envío (se guarda en la campaña). */
+function BatchSizeControl({ campaign: c }: { campaign: Campaign }) {
+  const { orgId } = useSession();
+  const [custom, setCustom] = useState(String(c.batchSize));
+  useEffect(() => setCustom(String(c.batchSize)), [c.batchSize]);
+  const save = (n: number) => {
+    const v = Math.max(1, Math.min(MAX_BATCH, Math.round(n) || c.batchSize));
+    if (v !== c.batchSize) updateItem<Campaign>(orgId, 'campaigns', c.id, { batchSize: v });
+    setCustom(String(v));
+  };
+  return (
+    <div className="batch-size">
+      <span className="small strong">Emails en este lote:</span>
+      <div className="chips">
+        {PRESETS.map((n) => (
+          <button key={n} type="button" className={`chip ${c.batchSize === n ? 'chip--on' : ''}`} onClick={() => save(n)}>{n}</button>
+        ))}
+        <input className="batch-size__input" type="number" min={1} max={MAX_BATCH} value={custom} aria-label="Número de emails del lote"
+          onChange={(e) => setCustom(e.target.value)} onBlur={(e) => save(Number(e.currentTarget.value))}
+          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
+      </div>
+      <span className="muted small">≈ {Math.ceil((c.batchSize * 5) / 60)} min de envío</span>
     </div>
   );
 }
