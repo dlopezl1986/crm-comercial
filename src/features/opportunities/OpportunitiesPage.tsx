@@ -14,12 +14,14 @@ import { OpportunityForm } from './OpportunityForm';
 import { PipelineBoard } from './PipelineBoard';
 import { useOpportunityFilters } from './useOpportunityFilters';
 import { OpportunityFiltersBar } from './OpportunityFiltersBar';
+import { ContactCells, useContactsByCompany } from '@/features/contacts/ContactCells';
 
 export function OpportunitiesPage() {
   const { opportunities, companyById, serviceById, ready } = useData();
   const [view, setView] = usePersistentState<'board' | 'list'>('opps.view', 'board');
   const [creating, setCreating] = useState(false);
   const filters = useOpportunityFilters();
+  const contactsByCompany = useContactsByCompany();
   const items = filters.filtered;
 
   const totals = useMemo(() => {
@@ -47,12 +49,13 @@ export function OpportunitiesPage() {
       ) : view === 'board' ? <PipelineBoard items={items} /> : (
         <div className="card card--flush">
           <div className="table-wrap"><table className="table">
-            <thead><tr><th>Oportunidad</th><th>Empresa</th><th>Estado</th><th className="num">Valor</th><th className="num">Prob.</th><th className="num">Ponderado</th><th>Cierre previsto</th><th>Próximo paso</th><th>Servicios / motivo</th></tr></thead>
+            <thead><tr><th>Oportunidad</th><th>Empresa</th><th>Contacto</th><th>Teléfono</th><th>Estado</th><th className="num">Valor</th><th className="num">Prob.</th><th className="num">Ponderado</th><th>Cierre previsto</th><th>Próximo paso</th><th>Servicios / motivo</th></tr></thead>
             <tbody>
               {items.map((o) => (
                 <tr key={o.id}>
                   <td><Link to={`/oportunidades/${o.id}`} className="strong-link">{o.name}</Link></td>
                   <td>{o.companyId && <Link to={`/empresas/${o.companyId}`}>{companyById.get(o.companyId)?.name}</Link>}</td>
+                  <ContactCells companyId={o.companyId} contactId={o.contactId} byCompany={contactsByCompany} />
                   <td><StageBadge stage={o.stage} /></td>
                   <td className="num">{money(o.value)}</td>
                   <td className="num">{o.probability != null ? `${o.probability} %` : '—'}</td>

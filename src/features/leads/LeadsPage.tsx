@@ -23,6 +23,7 @@ import { matches, uniqueSorted } from '@/lib/text';
 import { num } from '@/lib/format';
 import type { Company, Lead, LeadStatus } from '@/types/models';
 import { CompanyForm } from '@/features/companies/CompanyForm';
+import { ContactCells, useContactsByCompany } from '@/features/contacts/ContactCells';
 import { ActivityDialog } from '@/features/activities/ActivityDialog';
 import { BulkTagDialog, applyTags } from '@/features/shared/BulkTagDialog';
 import { LeadForm } from './LeadForm';
@@ -48,6 +49,7 @@ export function LeadsPage() {
   const [creating, setCreating] = useState(false);
   const [calling, setCalling] = useState<Lead | null>(null);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const contactsByCompany = useContactsByCompany();
   const [dialog, setDialog] = useState<'tags' | 'delete' | null>(null);
   const sel = useSelection();
 
@@ -118,19 +120,19 @@ export function LeadsPage() {
           <div className="table-wrap"><table className="table">
             <thead><tr>
               <th className="col-check"><input type="checkbox" checked={sel.selected.size === filtered.length} onChange={(e) => sel.setAll(filtered.map((l) => l.id), e.target.checked)} /></th>
-              <th>Lead</th><th>Teléfono</th><th>Estado</th><th>Próximo paso</th><th>Etiquetas</th><th>Últ. actividad</th><th></th>
+              <th>Lead</th><th>Teléfono</th><th>Contacto</th><th>Tel. contacto</th><th>Estado</th><th>Próximo paso</th><th>Etiquetas</th><th>Últ. actividad</th><th></th>
             </tr></thead>
             <tbody>
               {filtered.slice(page * PAGE, page * PAGE + PAGE).map((l) => {
                 const co = l.companyId ? d.companyById.get(l.companyId) : undefined;
-                const ct = l.contactId ? d.contactById.get(l.contactId) : undefined;
-                const tel = ct?.phone || ct?.mobile || co?.phone;
+                const tel = co?.phone;
                 return (
                   <tr key={l.id} className={sel.selected.has(l.id) ? 'selected' : ''}>
                     <td className="col-check"><input type="checkbox" checked={sel.selected.has(l.id)} onChange={() => sel.toggle(l.id)} /></td>
                     <td><Link to={`/leads/${l.id}`} className="strong-link">{l.title}</Link>
                       {co && <div className="muted small truncate">{[co.subsector || co.sector, co.city].filter(Boolean).join(' · ')}</div>}</td>
                     <td className="nowrap">{tel && <a href={`tel:${tel}`}>{tel}</a>}</td>
+                    <ContactCells companyId={l.companyId} contactId={l.contactId} byCompany={contactsByCompany} />
                     <td><Badge color={LEAD_STATUS[l.status].color}>{LEAD_STATUS[l.status].label}</Badge></td>
                     <td>{l.nextStep ? <span className="inline">{l.nextStep} <WhenBadge when={whenOf(l.nextStepAt)} /></span> : <span className="muted small">—</span>}</td>
                     <td><TagList tags={l.tags} max={2} /></td>

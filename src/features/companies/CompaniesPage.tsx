@@ -23,6 +23,7 @@ import { CompanyForm } from './CompanyForm';
 import { SectorFilters } from '@/components/form/SectorFilters';
 import { effectiveSector } from '@/domain/sectors';
 import { EmailStatusEditor } from './EmailStatusCell';
+import { ContactCells, useContactsByCompany } from '@/features/contacts/ContactCells';
 import { EMAIL_STATUS, EMAIL_STATUS_KEYS, emailStatusOf, type EmailStatusOrNone } from '@/domain/emailStatus';
 import { setEmailStatus } from '@/services/emailStatus';
 import { Modal } from '@/components/ui/Modal';
@@ -48,6 +49,7 @@ export function CompaniesPage() {
   const [page, setPage] = useState(0);
   const [creating, setCreating] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const contactsByCompany = useContactsByCompany();
   const [dialog, setDialog] = useState<'tags' | 'delete' | 'leads' | 'mail' | null>(null);
   const sel = useSelection();
 
@@ -159,7 +161,7 @@ export function CompaniesPage() {
               <tr>
                 <th className="col-check"><input type="checkbox" checked={allSelected} onChange={(e) => sel.setAll(filtered.map((c) => c.id), e.target.checked)}
                   title={`Seleccionar las ${filtered.length} filtradas`} /></th>
-                <th>Empresa</th><th>Sector</th><th>Ciudad</th><th>Teléfono</th><th>Email</th><th>Estado email</th><th>Etiquetas</th>
+                <th>Empresa</th><th>Sector</th><th>Ciudad</th><th>Teléfono</th><th>Contacto</th><th>Tel. contacto</th><th>Email</th><th>Estado email</th><th>Etiquetas</th>
                 <th className="num">Cont.</th><th className="num">Opor.</th><th>Últ. actividad</th><th></th>
               </tr>
             </thead>
@@ -173,6 +175,7 @@ export function CompaniesPage() {
                     <td className="muted"><div className="truncate">{c.sector}</div>{c.subsector && <div className="small truncate">{c.subsector}</div>}</td>
                     <td className="muted">{c.city}</td>
                     <td className="nowrap">{c.phone && <a href={`tel:${c.phone}`}>{c.phone}</a>}</td>
+                    <ContactCells companyId={c.id} byCompany={contactsByCompany} />
                     <td className="truncate">{c.email && <a href={`mailto:${c.email}`}>{c.email}</a>}</td>
                     <td>{c.email && <EmailStatusEditor company={c} compact />}</td>
                     <td><TagList tags={c.tags} max={2} /></td>
